@@ -1,6 +1,6 @@
 #include <iostream>
 #include <fstream>
-#include<stdio.h>
+#include <stdio.h>
 #include <math.h>
 #include <chrono>
 #include <opencv2/opencv.hpp>
@@ -12,7 +12,9 @@
 #include <opencv2/highgui/highgui.hpp>
 #include <experimental/filesystem>	
 #include <stdio.h>
-#include<sys/types.h>
+#include <sys/types.h>
+#include <windows.h>
+#include <conio.h>
 
 //#include <boost/filesystem.hpp>
 //namespace fs = boost::filesystem;
@@ -24,6 +26,22 @@ namespace fs = std::experimental::filesystem;
 
 string input = "C:\\Users\\kevin\\Desktop\\video1";
 string csv_path = input + "\\csv";
+bool remove_video = true;
+
+void keyboard_input(){
+	while (int key = _getch()) {
+		if (key == VK_ESCAPE) {
+			if (remove_video) {
+				cout << "remove_video turn off" << endl;
+				remove_video = false;
+			}
+			else {
+				cout << "remove_video turn on" << endl;
+				remove_video = true;
+			}
+		}
+	}
+}
 
 void test_func(string path,int csv_index)
 {
@@ -33,10 +51,7 @@ void test_func(string path,int csv_index)
 	vector<std::string> oldpaths;
 
 	oldpaths = paths;
-
-	std::cout << csv_index << " : "<<path << endl;
-
-	//cv::VideoCapture video("./15_41_24_24670.avi");
+	cout  << csv_index << " : " << path << endl;
 	cv::VideoCapture video(path);
 
 	const int cut_size = 12;
@@ -127,6 +142,8 @@ void test_func(string path,int csv_index)
 		csv << index << "," << length << "," << width << "," << X_center << "," << Y_center << "," << "\n";
 	}
 	csv.close();
+	
+
 	//for (const auto & entry : fs::directory_iterator(input)) {
 	//	if (entry.path().extension() == ".avi" && find(oldpaths.begin(), oldpaths.end(), entry.path().u8string()) == oldpaths.end()) {
 	//		paths.insert(paths.begin(), entry.path().u8string());
@@ -147,13 +164,12 @@ void test_func(string path,int csv_index)
 int main(int argc, char* argv[])
 {
 	int csv_index = 0;
-	// check if directory is created or not 
 	
 	while (input == "") {
 		std::cout << "Enter path of video : " << endl;
 		cin >> input;
 	}
-
+	// check csv directory is created or not 
 	if (!fs::is_directory(csv_path) || !fs::exists(csv_path)) {
 		fs::create_directory(csv_path);
 		printf("Directory created\n");
@@ -169,21 +185,41 @@ int main(int argc, char* argv[])
 	}
 
 	vector<thread> threads(8);
+	thread listener = thread(keyboard_input);
 	auto begin = chrono::high_resolution_clock::now();
 	int index = 0;
 	int threadcnt = 0;
 
 	while (true) {
 		for (int i = 0; i < 8; i++) {
-			if (index >= paths.size())break;
-			threads[i] = thread(test_func, paths[index++],csv_index++);
-			threadcnt++;
+			if (i < paths.size()) {
+				threads[i] = thread(test_func, paths[i], csv_index++);
+				threadcnt++;
+			}
 		}
 		for (int i = 0; i < threadcnt; i++) {
 			threads[i].join();
+			if (!remove_video) {
+				printf("remove_video is false");
+			}
+			else if (remove(paths.begin()->c_str()) != 0) {
+				perror("Error deleting file");
+			}
+			else {
+				puts("File successfully deleted");
+				paths.erase(paths.begin());
+			}
 		}
 		threadcnt = 0;
-		if (index >= paths.size())break;
+		if (paths.empty()) {
+			printf("Don't have video !!\n");
+			Sleep(8000);
+			for (const auto & entry : fs::directory_iterator(input)) {
+				if (entry.path().extension() == ".avi")
+					paths.push_back(entry.path().u8string());
+			}
+		}
+		//if (csv_index == 8)break;
 	}
 
 
