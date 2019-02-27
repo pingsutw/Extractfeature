@@ -138,10 +138,9 @@ void Extract_feature(string path, int csv_index)
 		else
 			visited.insert(path);
 		paths.erase(path);
+		cout << "test = " << csv_index << endl;
 	}
 }
-
-
 
 int main(int argc, char* argv[])
 {
@@ -172,8 +171,6 @@ int main(int argc, char* argv[])
 	auto begin = chrono::high_resolution_clock::now();
 	int index = 0;
 	
-	
-
 	while (true) {
 		int i = 0;
 		for (auto path : paths) {
@@ -183,25 +180,18 @@ int main(int argc, char* argv[])
 		}
 		for (int k = 0; k < workder_cnt; k++) {
 			workers[k].join();
-			for (auto path : removed) {
-				if (remove(path.c_str()) != 0) {
-					perror("Error deleting file");
-				}
-				else {
-					removed.erase(path);
-					puts("File successfully deleted");
-				}
+		}
+		for (auto path : removed) {
+			if (remove(path.c_str()) != 0) {
+				perror("Error deleting file");
+			}
+			else {
+				removed.erase(path);
+				puts("File successfully deleted");
 			}
 		}
+		
 		workder_cnt = 0;
-		if (remove_video) {
-			for (auto path : visited) {
-				if (!remove_video)
-					break;
-				removed.insert(path);
-				visited.erase(path);
-			}
-		}
 		if (paths.empty()) {
 			printf("Don't have video !!\n");
 			Sleep(4000);
@@ -209,6 +199,14 @@ int main(int argc, char* argv[])
 				auto p = entry.path();
 				if (p.extension() == ".avi" && !visited.count(p.u8string()))
 					paths.insert(p.u8string());
+			}
+		}
+		if (remove_video) {
+			for (auto path : visited) {
+				if (!remove_video)
+					break;
+				removed.insert(path);
+				visited.erase(path);
 			}
 		}
 	}
