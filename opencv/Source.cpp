@@ -15,6 +15,8 @@
 #include <sys/types.h>
 #include <windows.h>
 #include <conio.h>
+#include <unordered_map>
+#include <set>
 
 //#include <boost/filesystem.hpp>
 //namespace fs = boost::filesystem;
@@ -27,8 +29,11 @@ namespace fs = std::experimental::filesystem;
 string input = "C:\\Users\\kevin\\Desktop\\video1";
 string csv_path = input + "\\csv";
 bool remove_video = true;
+set<string> paths;
+set<string> visited;
+set<string> removed;
 
-void keyboard_input(){
+void keyboard_input() {
 	while (int key = _getch()) {
 		if (key == VK_ESCAPE) {
 			if (remove_video) {
@@ -43,18 +48,12 @@ void keyboard_input(){
 	}
 }
 
-void test_func(string path,int csv_index)
+void Extract_feature(string path, int csv_index)
 {
-	auto begin = chrono::high_resolution_clock::now();
-
-	vector<std::string> paths;
-	vector<std::string> oldpaths;
-
-	oldpaths = paths;
-	cout  << csv_index << " : " << path << endl;
+	cout << csv_index << " : " << path << endl;
 	cv::VideoCapture video(path);
 
-	const int cut_size = 12;
+	const int cut_size = 30;
 	if (!video.isOpened()) {
 		std::cout << "Can not find the video!!!" << endl;
 		return;
@@ -63,38 +62,32 @@ void test_func(string path,int csv_index)
 	ofstream csv;
 	int found = (int)path.find_last_of("\\");
 	int len = path.size() - found - 5;
-	string output = csv_path + "\\video-" + path.substr(found+1,len) + ".csv";
+	string output = csv_path + "\\video-" + path.substr(found + 1, len) + ".csv";
 	csv.open(output);
 	csv << ",Length,Width,X_center,Y_center,\n";
 
-	//Mat merge_frame(240*80, 240*50, CV_8UC3);
-	//Mat display(240, 240*3,CV_8U);
-
-	vector<float> W_list(4000, 0);
-	vector<float> L_list(4000, 0);
-	vector<float> X_center_list(4000, 0);
-	vector<float> Y_center_list(4000, 0);
+	vector<float> W_list(3000, 0);
+	vector<float> L_list(3000, 0);
+	vector<float> X_center_list(3000, 0);
+	vector<float> Y_center_list(3000, 0);
 	int width = 0, length = 0, index = 0;
 	Mat videoFrame;
 
-	while(true){
+	while (true) {
 		video >> videoFrame;
 		if (videoFrame.empty()) {
 			break;
-		}
-		//waitKey(10);
-		//imshow("Display window", videoFrame);  
+		} 
 
 		cvtColor(videoFrame, videoFrame, cv::COLOR_BGR2GRAY);
 		GaussianBlur(videoFrame, videoFrame, Size(5, 5), 1, 1);
 		int cut_x_start, cut_y_start;
 		int cut_x_end, cut_y_end;
-		if (index == 0 || L_list[index - 1] == 0 || L_list[index - 1] >= 10) {
+		if (index == 0 || L_list[index - 1] == 0 || L_list[index - 1] >= cut_size - 2) {
 			cut_x_start = 0;
 			cut_y_start = 0;
-			cut_x_end = videoFrame.cols;
-			//cout << videoFrame.cols << endl;
-			cut_y_end = videoFrame.rows;
+			cut_x_end = 0;
+			cut_y_end = 0;
 		}
 		else {
 			int half_cut_size = cut_size / 2;
@@ -106,8 +99,6 @@ void test_func(string path,int csv_index)
 			//videoFrame = videoFrame(myROI);
 		}
 		Canny(videoFrame, videoFrame, 80, 160);
-		//cout<<"type = " << videoFrame.type()<<endl;
-		//videoFrame.copyTo(display(Rect(0*240,0*240,240,240)));
 
 		int minX = 9999, maxX = 0, minY = 9999, maxY = 0;
 
@@ -138,33 +129,24 @@ void test_func(string path,int csv_index)
 		X_center_list[index] = X_center;
 		Y_center_list[index] = Y_center;
 		index++;
-		//cout << index << endl;
 		csv << index << "," << length << "," << width << "," << X_center << "," << Y_center << "," << "\n";
 	}
 	csv.close();
-	
-
-	//for (const auto & entry : fs::directory_iterator(input)) {
-	//	if (entry.path().extension() == ".avi" && find(oldpaths.begin(), oldpaths.end(), entry.path().u8string()) == oldpaths.end()) {
-	//		paths.insert(paths.begin(), entry.path().u8string());
-	//		oldpaths.insert(oldpaths.begin(), entry.path().u8string());
-	//	}
-
-	//}
-	//paths.pop_back();
-
-	//auto end = chrono::high_resolution_clock::now();
-	//auto dur = end - begin;
-	//auto ms = std::chrono::duration_cast<std::chrono::milliseconds>(dur).count();
-	//std::cout << "Time = " << ms / 1000 << " s " << ms % 1000 << " ms" << endl;
+	if (index > 2000) {
+		if (remove_video)
+			removed.insert(path);
+		else
+			visited.insert(path);
+		paths.erase(path);
+	}
 }
-	
+
 
 
 int main(int argc, char* argv[])
 {
 	int csv_index = 0;
-	
+
 	while (input == "") {
 		std::cout << "Enter path of video : " << endl;
 		cin >> input;
@@ -176,64 +158,66 @@ int main(int argc, char* argv[])
 	}
 	else {
 		printf("Directory exists\n");
-		//exit(1);
 	}
-	vector<std::string> paths;
 	for (const auto & entry : fs::directory_iterator(input)) {
-		if (entry.path().extension() == ".avi")
-			paths.push_back(entry.path().u8string());
+		if (entry.path().extension() == ".avi") {
+			paths.insert(entry.path().u8string());
+		}
 	}
 
-	vector<thread> threads(8);
+	int worker_max = 3;
+	int workder_cnt = 0;
+	vector<thread> workers(worker_max);
 	thread listener = thread(keyboard_input);
 	auto begin = chrono::high_resolution_clock::now();
 	int index = 0;
-	int threadcnt = 0;
+	
+	
 
 	while (true) {
-		for (int i = 0; i < 8; i++) {
-			if (i < paths.size()) {
-				threads[i] = thread(test_func, paths[i], csv_index++);
-				threadcnt++;
+		int i = 0;
+		for (auto path : paths) {
+			if (workder_cnt == worker_max)
+				break;
+			workers[workder_cnt++] = thread(Extract_feature, path, csv_index++);
+		}
+		for (int k = 0; k < workder_cnt; k++) {
+			workers[k].join();
+			for (auto path : removed) {
+				if (remove(path.c_str()) != 0) {
+					perror("Error deleting file");
+				}
+				else {
+					removed.erase(path);
+					puts("File successfully deleted");
+				}
 			}
 		}
-		for (int i = 0; i < threadcnt; i++) {
-			threads[i].join();
-			if (!remove_video) {
-				printf("remove_video is false");
-			}
-			else if (remove(paths.begin()->c_str()) != 0) {
-				perror("Error deleting file");
-			}
-			else {
-				puts("File successfully deleted");
-				paths.erase(paths.begin());
+		workder_cnt = 0;
+		if (remove_video) {
+			for (auto path : visited) {
+				if (!remove_video)
+					break;
+				removed.insert(path);
+				visited.erase(path);
 			}
 		}
-		threadcnt = 0;
 		if (paths.empty()) {
 			printf("Don't have video !!\n");
-			Sleep(8000);
+			Sleep(4000);
 			for (const auto & entry : fs::directory_iterator(input)) {
-				if (entry.path().extension() == ".avi")
-					paths.push_back(entry.path().u8string());
+				auto p = entry.path();
+				if (p.extension() == ".avi" && !visited.count(p.u8string()))
+					paths.insert(p.u8string());
 			}
 		}
-		//if (csv_index == 8)break;
 	}
-
 
 	auto end = chrono::high_resolution_clock::now();
 	auto dur = end - begin;
 	auto ms = std::chrono::duration_cast<std::chrono::milliseconds>(dur).count();
-	std::cout << "Finally Time = " << ms / 1000 << " s " << ms % 1000 << " ms" << endl;
+	cout << "Finally Time = " << ms / 1000 << " s " << ms % 1000 << " ms" << endl;
 
-
-	//int num_devices = cv::cuda::getCudaEnabledDeviceCount();
-	//cout << "Cuda dectect : " << num_devices << endl; 
-	//cuda::printCudaDeviceInfo(num_devices);  
-	
-	
 	getchar();
 	return 0;
 }
