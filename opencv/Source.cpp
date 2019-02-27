@@ -18,9 +18,8 @@
 #include <unordered_map>
 #include <set>
 
-//#include <boost/filesystem.hpp>
-//namespace fs = boost::filesystem;
-//#include "opencv2/gpu/gpu.hpp"
+#define max_worker  3
+#define max_frame  3000
 
 using namespace std;
 using namespace cv;
@@ -29,7 +28,7 @@ namespace fs = std::experimental::filesystem;
 string input = "C:\\Users\\kevin\\Desktop\\video1";
 string csv_path = input + "\\csv";
 bool remove_video = true;
-set<string> paths;
+unordered_map<string, int> paths;
 set<string> visited;
 set<string> removed;
 
@@ -48,14 +47,12 @@ void keyboard_input() {
 	}
 }
 
-void Extract_feature(string path, int csv_index)
+void Extract_feature(string path)
 {
-	cout << csv_index << " : " << path << endl;
 	cv::VideoCapture video(path);
-
 	const int cut_size = 30;
 	if (!video.isOpened()) {
-		std::cout << "Can not find the video!!!" << endl;
+		//std::cout << "Can not find the video!!!" << endl;
 		return;
 	}
 
@@ -66,10 +63,10 @@ void Extract_feature(string path, int csv_index)
 	csv.open(output);
 	csv << ",Length,Width,X_center,Y_center,\n";
 
-	vector<float> W_list(3000, 0);
-	vector<float> L_list(3000, 0);
-	vector<float> X_center_list(3000, 0);
-	vector<float> Y_center_list(3000, 0);
+	vector<float> W_list(max_frame, 0);
+	vector<float> L_list(max_frame, 0);
+	vector<float> X_center_list(max_frame, 0);
+	vector<float> Y_center_list(max_frame, 0);
 	int width = 0, length = 0, index = 0;
 	Mat videoFrame;
 
@@ -119,10 +116,7 @@ void Extract_feature(string path, int csv_index)
 		float Y_center = (maxY + minY) / 2.0f;
 
 		if (minX == 9999) {
-			width = 0;
-			length = 0;
-			X_center = 0;
-			Y_center = 0;
+			width = length = X_center = Y_center = 0;
 		}
 		W_list[index] = width;
 		L_list[index] = length;
@@ -132,73 +126,75 @@ void Extract_feature(string path, int csv_index)
 		csv << index << "," << length << "," << width << "," << X_center << "," << Y_center << "," << "\n";
 	}
 	csv.close();
-	if (index > 2000) {
+	paths[path]++;
+	if (index > 2000 || paths[path] == 3) {
 		if (remove_video)
 			removed.insert(path);
 		else
 			visited.insert(path);
 		paths.erase(path);
-		cout << "test = " << csv_index << endl;
 	}
 }
 
 int main(int argc, char* argv[])
 {
-	int csv_index = 0;
-
 	while (input == "") {
 		std::cout << "Enter path of video : " << endl;
 		cin >> input;
 	}
 	// check csv directory is created or not 
-	if (!fs::is_directory(csv_path) || !fs::exists(csv_path)) {
+	if (!fs::exists(csv_path)) {
 		fs::create_directory(csv_path);
 		printf("Directory created\n");
+	}
+	else if(!fs::is_directory(csv_path)) {
+		printf("Can not create directory\n");
+		return 0;
 	}
 	else {
 		printf("Directory exists\n");
 	}
 	for (const auto & entry : fs::directory_iterator(input)) {
 		if (entry.path().extension() == ".avi") {
-			paths.insert(entry.path().u8string());
+			paths[entry.path().u8string()] = 0;
 		}
 	}
 
-	int worker_max = 3;
-	int workder_cnt = 0;
-	vector<thread> workers(worker_max);
+	int workder_cnt = 0, index = 0;
+	vector<thread> workers(max_worker);
 	thread listener = thread(keyboard_input);
 	auto begin = chrono::high_resolution_clock::now();
-	int index = 0;
 	
 	while (true) {
-		int i = 0;
 		for (auto path : paths) {
-			if (workder_cnt == worker_max)
+			if (workder_cnt == max_worker)
 				break;
-			workers[workder_cnt++] = thread(Extract_feature, path, csv_index++);
+			workers[workder_cnt++] = thread(Extract_feature, path.first);
+			printf("[ %d ] %s\n", index++, path.first.c_str());
 		}
 		for (int k = 0; k < workder_cnt; k++) {
 			workers[k].join();
 		}
+		workder_cnt = 0;
 		for (auto path : removed) {
 			if (remove(path.c_str()) != 0) {
 				perror("Error deleting file");
 			}
 			else {
 				removed.erase(path);
-				puts("File successfully deleted");
+				printf("%s already deleted !!\n", path.c_str());
 			}
 		}
-		
-		workder_cnt = 0;
 		if (paths.empty()) {
-			printf("Don't have video !!\n");
+			if(visited.size())
+				printf("Done !!\n");
+			else
+				printf("Please add new video !!\n");
 			Sleep(4000);
 			for (const auto & entry : fs::directory_iterator(input)) {
 				auto p = entry.path();
 				if (p.extension() == ".avi" && !visited.count(p.u8string()))
-					paths.insert(p.u8string());
+					paths[p.u8string()] = 0;
 			}
 		}
 		if (remove_video) {
