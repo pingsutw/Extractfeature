@@ -18,16 +18,16 @@
 #include <unordered_map>
 #include <set>
 
-#define max_worker  3
-#define max_frame  3000
-
 using namespace std;
 using namespace cv;
 namespace fs = std::experimental::filesystem;
 
+#define max_worker  3
+#define max_frame  3000
+
+bool remove_video = true;
 string input = "C:\\Users\\kevin\\Desktop\\video1";
 string csv_path = input + "\\csv";
-bool remove_video = true;
 unordered_map<string, int> paths;
 set<string> visited;
 set<string> removed;
@@ -72,10 +72,9 @@ void Extract_feature(string path)
 
 	while (true) {
 		video >> videoFrame;
-		if (videoFrame.empty()) {
+		if (videoFrame.empty())
 			break;
-		} 
-
+		
 		cvtColor(videoFrame, videoFrame, cv::COLOR_BGR2GRAY);
 		GaussianBlur(videoFrame, videoFrame, Size(5, 5), 1, 1);
 		int cut_x_start, cut_y_start;
@@ -92,8 +91,6 @@ void Extract_feature(string path)
 			cut_y_start = (int)max(0.0f, round(Y_center_list[index - 1] - half_cut_size));
 			cut_x_end = (int)min((float)videoFrame.cols, round(X_center_list[index - 1] + half_cut_size));
 			cut_y_end = (int)min((float)videoFrame.rows, round(Y_center_list[index - 1] + half_cut_size));
-			//Rect myROI(cut_y_start, cut_x_start, cut_y_end - cut_y_start, cut_x_end - cut_x_start);
-			//videoFrame = videoFrame(myROI);
 		}
 		Canny(videoFrame, videoFrame, 80, 160);
 
@@ -138,6 +135,9 @@ void Extract_feature(string path)
 
 int main(int argc, char* argv[])
 {
+	string process = "opencv.exe";
+	SetPriorityClass(&process, REALTIME_PRIORITY_CLASS);
+	//SetPriorityClass(GetCurrentProcess(), REALTIME_PRIORITY_CLASS);
 	while (input == "") {
 		std::cout << "Enter path of video : " << endl;
 		cin >> input;
@@ -145,14 +145,14 @@ int main(int argc, char* argv[])
 	// check csv directory is created or not 
 	if (!fs::exists(csv_path)) {
 		fs::create_directory(csv_path);
-		printf("Directory created\n");
+		printf("CSV directory created\n");
 	}
 	else if(!fs::is_directory(csv_path)) {
 		printf("Can not create directory\n");
 		return 0;
 	}
 	else {
-		printf("Directory exists\n");
+		printf("CSV directory exists\n");
 	}
 	for (const auto & entry : fs::directory_iterator(input)) {
 		if (entry.path().extension() == ".avi") {
@@ -186,11 +186,8 @@ int main(int argc, char* argv[])
 			}
 		}
 		if (paths.empty()) {
-			if(visited.size())
-				printf("Done !!\n");
-			else
-				printf("Please add new video !!\n");
-			Sleep(4000);
+			printf("Please add new video !!\n");
+			Sleep(max_worker*1000);
 			for (const auto & entry : fs::directory_iterator(input)) {
 				auto p = entry.path();
 				if (p.extension() == ".avi" && !visited.count(p.u8string()))
