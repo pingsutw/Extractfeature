@@ -4,8 +4,7 @@ TODO : introduction
 
 ## Pre-requested 
 * C++ or python basic 
-* OpenCV skill 
-* Install Cmake https://cmake.org/download/
+* OpenCV skills 
 * gcc or MSVC
 
 ## How to use
@@ -13,20 +12,17 @@ Download project
 ```shell
 git clone https://github.com/pingsutw/Extractfeature.git
 ```
-Build project 
-```shell
-mkdir build 
-cmake ..
-make 
+### Windows
+Open with MSVC
 ```
-If you want to set c++ compiler for CMake 
-```shell
-cmake -DCMAKE_C_COMPILER=/path/to/c/compiler ..
+Open ./opencv.sln 
 ```
-or 
+### Ubuntu 
 ```
-Add SET(CMAKE_C_COMPILER /path/to/c/compiler) in CMakeLists.txt
+g++ ./source.cpp -o output `pkg-config --cflags --libs opencv`
+./output 
 ```
+
 ## Goal 
 1. Dectet point of laser on the metal 
 2. real time analyze
