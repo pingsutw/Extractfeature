@@ -1,7 +1,11 @@
 # Extractfeature
 
-This is for autoLab 
-Opencv with C++ for calculate the Center point of Laser to **imrpove** manufacturing
+TODO : introduction
+
+## Pre-requested 
+* C++ or python basic 
+* OpenCV skill 
+* Install Cmake https://cmake.org/download/
 
 ## How to use
 * Install Microsoft visual studio
