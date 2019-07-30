@@ -19,7 +19,7 @@ Open ./opencv.sln
 ```
 ### Ubuntu 
 ```
-g++ ./source.cpp -o output `pkg-config --cflags --libs opencv`
+g++ ./opencv/source.cpp -o output `pkg-config --cflags --libs opencv`
 ./output 
 ```
 
