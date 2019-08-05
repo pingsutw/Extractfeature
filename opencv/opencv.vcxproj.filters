@@ -18,5 +18,8 @@
     <ClCompile Include="Source.cpp">
       <Filter>標頭檔</Filter>
     </ClCompile>
+    <ClCompile Include="Source1.cpp">
+      <Filter>標頭檔</Filter>
+    </ClCompile>
   </ItemGroup>
 </Project>

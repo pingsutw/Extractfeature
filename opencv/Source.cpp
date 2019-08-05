@@ -18,6 +18,7 @@
 #include <unordered_map>
 #include <set>
 
+
 using namespace std;
 using namespace cv;
 namespace fs = std::experimental::filesystem;
@@ -82,8 +83,8 @@ void Extract_feature(string path)
 		if (index == 0 || L_list[index - 1] == 0 || L_list[index - 1] >= cut_size - 2) {
 			cut_x_start = 0;
 			cut_y_start = 0;
-			cut_x_end = 0;
-			cut_y_end = 0;
+			cut_x_end = videoFrame.cols;
+			cut_y_end = videoFrame.rows;
 		}
 		else {
 			int half_cut_size = cut_size / 2;
@@ -133,7 +134,7 @@ void Extract_feature(string path)
 	}
 }
 
-int main(int argc, char* argv[])
+int main1(int argc, char* argv[])
 {
 	string process = "opencv.exe";
 	SetPriorityClass(&process, REALTIME_PRIORITY_CLASS);
