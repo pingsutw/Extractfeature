@@ -136,6 +136,9 @@ void Extract_feature(string path)
 
 int main1(int argc, char* argv[])
 {
+	ios_base::sync_with_stdio(false);
+	cin.tie(NULL);
+
 	string process = "opencv.exe";
 	SetPriorityClass(&process, REALTIME_PRIORITY_CLASS);
 	//SetPriorityClass(GetCurrentProcess(), REALTIME_PRIORITY_CLASS);
