@@ -41,7 +41,7 @@ string pyro_txt_file = file_prefix + "0724pyro_1";
 string sample_position_path = file_prefix + "sample_position.csv";
 
 string output = file_prefix + "pyro_layer_time1.txt";
-string layer = file_prefix + "layer";
+string layer = file_prefix + "layer"; //Need to create dir first 
 
 string AVM_image_features_index[] = { "Length_min","Length_max","Length_mean","Length_var","Length_std","Length_skew",
 									   "Length_kurt","Length_1quantile'","Length_2quantile","Length_3quantile","Length_range",
@@ -193,7 +193,7 @@ int main() {
 		vector<double> layer_temper_data;
 		vector<double> current_temper_data;
 
-		//Åª¨ú·Å«×¸ê®Æ¡AÂà´«¦¨·Å«×­È¡A¨Ã¦êÁp°_¨Ó
+		//è®€å–æº«åº¦è³‡æ–™ï¼Œè½‰æ›æˆæº«åº¦å€¼ï¼Œä¸¦ä¸²è¯èµ·ä¾†
 		//read pyro data, calculate temperature and concate
 		for (int i = 0; i < pyro_files.size(); i++) {
 			istringstream infile(pyro_files[i]);
@@ -224,7 +224,7 @@ int main() {
 		for (auto& d : current_temper_data) {
 			layer_temper_data.push_back(d);
 		}
-		/*§Q¥Îmoving windows´M§ä¨C¼h¶}©l¥H¤Îµ²§ô®É¶¡ÂI
+		/*åˆ©ç”¨moving windowså°‹æ‰¾æ¯å±¤é–‹å§‹ä»¥åŠçµæŸæ™‚é–“é»
 			check the layer segment point
 			current_temper_data = np.array(current_temper_data, dtype = float)*/
 		for (int i = 0; i < current_temper_data.size(); i++) {
@@ -272,7 +272,7 @@ int main() {
 		}
 		current_temepr_time.millisecond += current_temper_data.size() * 10;
 		checkTime(current_temepr_time);
-		//Åª¨ú¹Ï¹³¸ê®Æ¡A¨Ã¦êÁp°_¨Ó
+		//è®€å–åœ–åƒè³‡æ–™ï¼Œä¸¦ä¸²è¯èµ·ä¾†
 		//read image data and concate
 
 		vector<vector<double>> current_image_feature;
@@ -340,7 +340,7 @@ int main() {
 		}
 
 		count += 1;
-		//­pºâ¦U­Ó¼Ë¥»¯S¼x
+		//è¨ˆç®—å„å€‹æ¨£æœ¬ç‰¹å¾µ
 		//sample match and calculate features
 		if (pyro_calculate_features && image_calculate_features) {
 			getCurrentTime();
