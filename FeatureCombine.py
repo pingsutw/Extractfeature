@@ -29,58 +29,7 @@ def isInsidePolygon(pt, poly):
         j = i
     return c
 
-'''計算image features的特徵'''
-def calculate_image_indicator (layer_image_feature):
-    AVM_image_features=pd.DataFrame(columns=['Length_min','Length_max','Length_mean','Length_var','Length_std','Length_skew',
-                                       'Length_kurt','Length_1quantile','Length_2quantile','Length_3quantile','Length_range',
-                                       'Length_quantile',
-                                       'Width_min','Width_max','Width_mean','Width_var','Width_std','Width_skew',
-                                       'Width_kurt','Width_1quantile','Width_2quantile','Width_3quantile','Width_range',
-                                       'Width_quantile',
-                                       ])  
-            
-    for i in range (max(layer_image_feature['Sample_no'])):
-        sample_filter=(layer_image_feature['Sample_no']== i)
-        
-        temp_sample=layer_image_feature[sample_filter].copy()
-        
-        temp_sample[['Length','Width']] = temp_sample[['Length','Width']].apply(pd.to_numeric, downcast='float')
-        
-        temp_Length_min=temp_sample.Length.min()
-        temp_Length_max=temp_sample.Length.max()
-        temp_Length_mean=temp_sample.Length.mean()
-        temp_Length_var=temp_sample.Length.var()
-        temp_Length_std=temp_sample.Length.std()
-        temp_Length_skew=temp_sample.Length.skew()
-        temp_Length_kurt=temp_sample.Length.kurtosis()
-        temp_Length_1quantile=temp_sample.Length.quantile(q=0.25)
-        temp_Length_2quantile=temp_sample.Length.quantile(q=0.5)
-        temp_Length_3quantile=temp_sample.Length.quantile(q=0.75)
-        temp_Length_range=temp_Length_max-temp_Length_min
-        temp_Length_quantile=temp_Length_3quantile-temp_Length_1quantile
-        
-        temp_Width_min=temp_sample.Width.min()
-        temp_Width_max=temp_sample.Width.max()
-        temp_Width_mean=temp_sample.Width.mean()
-        temp_Width_var=temp_sample.Width.var()
-        temp_Width_std=temp_sample.Width.std()
-        temp_Width_skew=temp_sample.Width.skew()
-        temp_Width_kurt=temp_sample.Width.kurtosis()
-        temp_Width_1quantile=temp_sample.Width.quantile(q=0.25)
-        temp_Width_2quantile=temp_sample.Width.quantile(q=0.5)
-        temp_Width_3quantile=temp_sample.Width.quantile(q=0.75)
-        temp_Width_range=temp_Width_max-temp_Width_min
-        temp_Width_quantile=temp_Width_3quantile-temp_Width_1quantile
-        
-        AVM_image_features.loc[i]=[temp_Length_min, temp_Length_max, temp_Length_mean, temp_Length_var, temp_Length_std,
-                    temp_Length_skew, temp_Length_kurt, temp_Length_1quantile, temp_Length_2quantile,temp_Length_3quantile, 
-                    temp_Length_range, temp_Length_quantile,
-                    temp_Width_min, temp_Width_max, temp_Width_mean, temp_Width_var, temp_Width_std, temp_Width_skew,
-                    temp_Width_kurt, temp_Width_1quantile, temp_Width_2quantile, temp_Width_3quantile, temp_Width_range,
-                    temp_Width_quantile, 
-                    ]
-    return AVM_image_features
-
+'''計算特徵'''
 def calculate_indicator (layer_image_feature,layer_temper_data_time,layer_temper_data):
     AVM_features=pd.DataFrame(columns=['Length_min','Length_max','Length_mean','Length_var','Length_std','Length_skew',
                                        'Length_kurt','Length_1quantile','Length_2quantile','Length_3quantile','Length_range',
