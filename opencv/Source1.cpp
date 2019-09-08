@@ -37,8 +37,8 @@ string image_csv_file = file_prefix +"0724csv_1";
 string pyro_txt_file = file_prefix + "0724pyro_1";
 string sample_position_path = file_prefix + "sample_position.csv";
 
-string output = file_prefix + "pyro_layer_time1.txt";
-string layer = file_prefix + "layer"; //Need to create dir first 
+string output_path = file_prefix + "pyro_layer_time1.txt";
+string layer_path = file_prefix + "layer"; //Need to create dir first 
 
 string AVM_image_features_index[] = { "Length_min","Length_max","Length_mean","Length_var","Length_std","Length_skew",
 									   "Length_kurt","Length_1quantile'","Length_2quantile","Length_3quantile","Length_range",
@@ -75,7 +75,8 @@ void checkTime(Time& t);
 double mean(vector<double>& check_window_layer);
 void getCurrentTime();
 bool isInsidePolygon(vector<double>& pt, vector<vector<double>>& poly);
-vector<vector<double>> calculate_indicator(vector<vector<double>>& layer_image_feature, vector<int>& Sample_no);
+vector<vector<double>> calculate_indicator(vector<vector<double>>& layer_image_feature, 
+	Time& layer_temper_data_time, vector<double>& layer_temper_data, vector<Time>& Timetag_copy);
 double sum(const vector<double>& numbers);
 double computeSampleVariance(const double mean, const std::vector<double>& numbers);
 double skewness(vector<double>& arr, double std);
@@ -124,7 +125,7 @@ int main() {
 		for (int j = 0; j < image_simu_time.size(); j++) {
 			if (c[j]) {
 				image_simu_time[j][1] = int(pyro_simulation.size() / 30.0f) - i - 1;
-				cout << image_simu_time[j][1] << endl;
+				//cout << image_simu_time[j][1] << endl;
 			}
 		}
 	}
@@ -165,6 +166,7 @@ int main() {
 	double wait_time_layer = 0;
 
 	vector<vector<double>> layer_image_feature;
+	vector<Time> Timetag_copy;
 	vector<Time> Timetag;
 	Time layer_end_time;
 	Time layer_temper_data_time;
@@ -224,7 +226,7 @@ int main() {
 			layer_end_time.day + 1;
 			checkTime(layer_end_time);
 
-			ofstream csv(output, ios::out | ios::app);
+			ofstream csv(output_path, ios::out | ios::app);
 			//csv.open(output);
 			csv << "Pyro start at " << pyro_start_time << "\n";
 			csv.close();
@@ -274,7 +276,7 @@ int main() {
 				Time layer_start_time = current_temepr_time;
 				layer_start_time.millisecond += i * 10;
 				checkTime(layer_start_time);
-				ofstream csv(output, ios::out | ios::app);
+				ofstream csv(output_path, ios::out | ios::app);
 				//csv.open(output);
 				csv << "Layer " << layer << " start at " << layer_start_time << "\n";
 				csv.close();
@@ -298,7 +300,7 @@ int main() {
 					layer_end_time.millisecond += i * 10;
 					checkTime(layer_end_time);
 
-					ofstream csv(output, ios::out | ios::app);
+					ofstream csv(output_path, ios::out | ios::app);
 					//csv.open(output);
 					csv << "Layer " << layer << " end at " << layer_end_time << "\n";
 					csv.close();
@@ -346,7 +348,6 @@ int main() {
 
 			vector<vector<double>> feature_remove = temp_feature;
 			vector<vector<double>> feature_final;
-			vector<Time> Timetag_copy;
 
 			// remove too big meltpool
 			for (int j = 0; j < temp_feature.size(); j++) {
@@ -386,26 +387,30 @@ int main() {
 			for (int i = 0; i < layer_image_feature.size(); i++) {
 				//X_center and Y_center
 				//mover image position to actual position
-				double x = (layer_image_feature[i][2] - 98) * 140 / 75;
-				double y = (layer_image_feature[i][3] - 98) * 140 / 93;
+				double x = 160 - layer_image_feature[i][2];
+				double y = 160 - layer_image_feature[i][3];
+
+				x = (x - 90) * 140 / 75;
+				y = (y - 57) * 140 / 93;
 				position.push_back({x,y});
 			}
 			//initial feature sample_no
-			vector<int> Sample_no(layer_image_feature.size(), 0);
+			//vector<int> Sample_no(layer_image_feature.size(), 0);
 
 			//allocate sample number
 			for (int i = 0; i < layer_image_feature.size(); i++) {
 				for (int j = 0; j < sample_position.size(); j++) {
 					bool f = isInsidePolygon(position[i], sample_position[j]);
 					if (f == true) {
-						layer_image_feature[i].back() = j + 1;
+						layer_image_feature[i].push_back(j + 1);
 						break;
 					}
 				}
 			}
 			//calculate image features
-			vector<vector<double>> AVM_image_features = calculate_indicator(layer_image_feature,Sample_no);
-			ofstream csv(layer + "\\layer_" + to_string(layer) + "_feature.csv", ios::out | ios::app);
+			vector<vector<double>> AVM_image_features = calculate_indicator(layer_image_feature, 
+				layer_temper_data_time, layer_temper_data, Timetag_copy);
+			ofstream csv(layer_path + "\\layer_" + to_string(layer) + "_feature.csv", ios::out | ios::app);
 			//csv.open(layer + "\\layer_" + to_string(layer) + "_feature.csv");
 			for (int i = 0; i < AVM_image_features_index->size(); i++) {
 				csv << AVM_image_features_index[i];
@@ -425,6 +430,9 @@ int main() {
 						csv << "\n";
 				}
 			}
+			layer_temper_data_time.millisecond += layer_temper_data.size() * 10;
+			checkTime(layer_temper_data_time);
+
 			csv.close();
 			layer_temper_data.clear();
 			pyro_calculate_features = false;
@@ -555,15 +563,19 @@ double Kurtosis(vector<double>& arr, double std, double avg) {
 
 
 // Length, Width, X_center, Y_Center
-vector<vector<double>> calculate_indicator(vector<vector<double>>& layer_image_feature, vector<int>& Sample_no) {
+vector<vector<double>> calculate_indicator(vector<vector<double>>& layer_image_feature, 
+	Time& layer_temper_data_time, vector<double>& layer_temper_data, vector<Time>& Timetag_copy) {
 	vector<vector<double>> AVM_image_features;
 	vector<double> temp_sample_L;
 	vector<double> temp_sample_W;
 
-	int ma = *max_element(Sample_no.begin(), Sample_no.end());
-	for (int i = 0; i < ma; i++) {
-		for (int j = 0; j < Sample_no.size(); j++) {
-			if (Sample_no[j] == i) {
+	int ma_sample = 0;
+	for (int i = 0; i < layer_image_feature.size(); i++) {
+		ma_sample = max(ma_sample, layer_image_feature[i].back());
+	}
+	for (int i = 0; i < ma_sample; i++) {
+		for (int j = 0; j < layer_image_feature.size(); j++) {
+			if (layer_image_feature[j].back() == i) {
 				temp_sample_L.push_back(layer_image_feature[j][0]);
 				temp_sample_W.push_back(layer_image_feature[j][1]);
 			}
