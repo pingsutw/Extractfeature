@@ -3,13 +3,10 @@
 #include <stdio.h>
 #include <math.h>
 #include <chrono>
-#include <opencv2/opencv.hpp>
 #include <thread> 
 #include <filesystem>
 #include <vector>
 #include <string>
-#include <opencv2/core/core.hpp>
-#include <opencv2/highgui/highgui.hpp>
 #include <experimental/filesystem>	
 #include <stdio.h>
 #include <sys/types.h>
@@ -21,13 +18,13 @@
 #include <chrono>
 #include <numeric>
 #include <assert.h>
-
+#include<sstream>
+#include <iomanip>
+#include <ctime>
 
 #define _CRT_SECURE_NO_WARNINGS
 
-
 using namespace std;
-using namespace cv;
 namespace fs = std::experimental::filesystem;
 
 string file_prefix = "C:\\Users\\kevin\\Desktop\\";
@@ -51,13 +48,13 @@ string AVM_image_features_index[] = { "Length_min","Length_max","Length_mean","L
 									   "Width_quantile"};
 
 struct Time {
-	int year;
-	int month;
-	int day;
-	int hour;
-	int min;
-	int second;
-	int millisecond;
+	int year = 0;
+	int month = 0;
+	int day = 0;
+	int hour = 0;
+	int min = 0;
+	int second = 0;
+	int millisecond = 0;
 
 	bool operator < (Time const &t) {
 		if (year < t.year)return true;
@@ -72,36 +69,66 @@ struct Time {
 
 };
 
-string getfilename(string path);
+std::string getfilename(string path);
 ostream & operator << (ostream &out, const Time &c);
 void checkTime(Time& t);
 double mean(vector<double>& check_window_layer);
 void getCurrentTime();
 bool isInsidePolygon(vector<double>& pt, vector<vector<double>>& poly);
-vector<vector<double>> calculate_image_indicator(vector<vector<double>>& layer_image_feature, vector<int>& Sample_no);
+vector<vector<double>> calculate_indicator(vector<vector<double>>& layer_image_feature, vector<int>& Sample_no);
 double sum(const vector<double>& numbers);
 double computeSampleVariance(const double mean, const std::vector<double>& numbers);
 double skewness(vector<double>& arr, double std);
 template <typename T1, typename T2> typename T1::value_type quant(const T1 &x, T2 q);
 double Kurtosis(vector<double>& arr, double std, double mean);
-
+vector<string> split(const string& str, const string& delim);
+inline bool exists(const std::string& name);
 
 int main() {
 	ios_base::sync_with_stdio(false);
 	cin.tie(NULL);
 
-	vector<string> pyro_simulation;
-	vector<string> image_simulation;
+	vector<std::string> pyro_simulation;
+	vector<std::string> image_simulation;
 	for (const auto & entry : fs::directory_iterator(image_csv_simulation))
-		image_simulation.push_back(entry.path().u8string());
+		image_simulation.push_back(getfilename(entry.path().u8string()));
 	for (const auto & entry : fs::directory_iterator(pyro_txt_simulation))
-		pyro_simulation.push_back(entry.path().u8string());
+		pyro_simulation.push_back(getfilename(entry.path().u8string()));
 	sort(pyro_simulation.begin(), pyro_simulation.end());
 	sort(image_simulation.begin(), image_simulation.end());
-	//cout << pyro_simulation[0] << endl;
+	cout << "pyro_simulation[0] = " << pyro_simulation[0] << endl;
+
+	vector<double> pyro_simu_time;
+	for (int i = 0; i < pyro_simulation.size(); i++) {
+		vector<string> time_idx;
+		time_idx = split(pyro_simulation[i], "_");
+		double t = atoi(time_idx[0].c_str()) * 3600 + atoi(time_idx[0].c_str())*60
+			+ atoi(time_idx[0].c_str()) + atoi(time_idx[0].c_str())/1000000;
+		pyro_simu_time.push_back(t);
+	}
+	cout << "pyro_simu_time.size() = " << pyro_simu_time.size() << endl;
+
+	vector<vector<double>> image_simu_time;
+	for (int i = 0; i < image_simulation.size(); i++) {
+		vector<string> time_idx;
+		time_idx = split(split(image_simulation[i], "-")[1],"_");
+		double t = atoi(time_idx[0].c_str()) * 3600.0f + atoi(time_idx[0].c_str()) * 60.0f
+			+ atoi(time_idx[0].c_str()) + atoi(time_idx[0].c_str()) / 1000000.0f;
+		image_simu_time.push_back({t,0});
+	}
+	for (int i = 0; i < pyro_simulation.size()/30; i++) {
+		for (int j = 0; j < image_simu_time.size(); j++) {
+			bool c = image_simu_time[j][0] < pyro_simu_time[int(pyro_simulation.size() / 30 - i) * 30];
+			if (c)
+				image_simu_time[j][1] = int(pyro_simulation.size() / 30) - i - 1;
+		}
+	}
+	
+	cout << "image_simu_time.size() = "<< image_simu_time.size() << endl;
 
 	vector<vector<vector<double>>> sample_position;
 
+	//'''讀取樣本位置'''
 	string line;
 	ifstream infile(sample_position_path);
 	getline(infile, line);
@@ -127,51 +154,56 @@ int main() {
 	int layer = 0, next_layer = 1, count = 0;
 	bool pyro_calculate_features = false, image_calculate_features = false;
 
-	vector<double> check_window_layer(50000, 5000);
-	bool state_waitting_layer = true; //record if priting layer
+	vector<double> check_window_layer(20000, 5000); // 0.2 seconds moving window
+	int check_window_layer_index = 0;
+	bool state_waitting_layer = true; // record if priting layer
 	double wait_time_layer = 0;
 
 	vector<vector<double>> layer_image_feature;
 	vector<Time> Timetag;
+	Time layer_end_time;
+	Time layer_temper_data_time;
+	Time current_temepr_time;
 
-	int test = 1;
+	vector<double> layer_temper_data;
+
+	// continous loop
 	while (true) {
 		getCurrentTime();
-		int result = 0;
-		if (count % 3 == 0) {
-			cout << image_simulation[count * 3] << endl;
-			cout << image_simulation.size() << endl;
-			result |= rename(image_simulation[count * 3].c_str(), (image_csv_file + "\\" + getfilename(image_simulation[count * 3]) + ".csv").c_str());
-			result |= rename(image_simulation[count * 3 + 1].c_str(), (image_csv_file + "\\" + getfilename(image_simulation[count * 3 + 1]) + ".csv").c_str());
-			result |= rename(image_simulation[count * 3 + 2].c_str(), (image_csv_file + "\\" + getfilename(image_simulation[count * 3 + 2]) + ".csv").c_str());
-		}
-		for (int i = 0; i < 30; i++)
-			result |= rename((pyro_simulation[count * 30 + i]).c_str(), (pyro_txt_file + "\\" + getfilename(pyro_simulation[count * 30 + i]) + ".txt").c_str());
+		cout << "count = "<< count << endl;
 
+		int result = 0;
+		for (int i = 0; i < 30; i++) {
+			string origin_file_name = pyro_txt_simulation + "\\" + pyro_simulation[count * 30 + i] + ".txt";
+			//cout << origin_file_name << endl;
+			if (exists(origin_file_name))
+				result |= rename(origin_file_name.c_str(), (pyro_txt_file + "\\" + getfilename(pyro_simulation[count * 30 + i])).c_str());
+		}
+		for (int i = 0; i < image_simulation.size(); i++) {
+			string origin_file_name = image_csv_simulation + "\\" + image_simulation[i] + ".csv";
+			if (exists(origin_file_name) && image_simu_time[i][1] == count)
+				result |= rename(origin_file_name.c_str(), (image_csv_file + "\\" + getfilename(image_simulation[i])).c_str());
+		}
+		
 		//cout << pyro_txt_file + "\\" + pyro_simulation[0] + ".txt" << endl;
-		if (result == 0)
-			puts("File successfully renamed");
-		else {
+		if (result != 0) {
 			perror("Error renaming file");
 			return 0;
 		}
 		Sleep(1000);
 
-		vector<string> pyro_files;
-		vector<string> image_files;
-		for (const auto & entry : fs::directory_iterator(image_csv_file))
-			image_files.push_back(entry.path().u8string());
+		vector<std::string> pyro_files;
+		vector<std::string> image_files;
 		for (const auto & entry : fs::directory_iterator(pyro_txt_file))
-			pyro_files.push_back(entry.path().u8string());
+			pyro_files.push_back(getfilename(entry.path().u8string()));
+		for (const auto & entry : fs::directory_iterator(image_csv_file))
+			image_files.push_back(getfilename(entry.path().u8string()));
 		sort(pyro_files.begin(), pyro_files.end());
 		sort(image_files.begin(), image_files.end());
 
-		Time current_temepr_time;
-		Time layer_end_time;
-
 		if (count == 0) {
-			struct tm tm;
-			cout << pyro_files[0] << endl;
+			//struct tm tm;
+			//cout << pyro_files[0] << endl;
 			istringstream  ss(date + "-" + getfilename(pyro_files[0]) + "0");
 			Time pyro_start_time;
 
@@ -179,27 +211,28 @@ int main() {
 				&pyro_start_time.hour, &pyro_start_time.min, &pyro_start_time.second, &pyro_start_time.millisecond);
 
 			current_temepr_time = pyro_start_time;
-			cout << ss.str() << endl;
 
-			Time layer_end_time = pyro_start_time;
+			layer_temper_data_time = pyro_start_time;
+			//cout << ss.str() << endl;
+
+			layer_end_time = pyro_start_time;
 			layer_end_time.day + 1;
 			checkTime(layer_end_time);
 
-			ofstream csv;
-			csv.open(output);
+			ofstream csv(output, ios::out | ios::app);
+			//csv.open(output);
 			csv << "Pyro start at " << pyro_start_time << "\n";
 			csv.close();
 		}
-		vector<double> layer_temper_data;
 		vector<double> current_temper_data;
-
 		//讀取溫度資料，轉換成溫度值，並串聯起來
 		//read pyro data, calculate temperature and concate
 		for (int i = 0; i < pyro_files.size(); i++) {
-			istringstream infile(pyro_files[i]);
+			ifstream infile(pyro_txt_file + "\\" + pyro_files[i]);
 			string d1, d2;
 			vector<vector<double>> temp_array;
 			while (getline(infile, d1, ',')) {
+				//cout << d1 << endl;
 				getline(infile, d2, ',');
 				vector<double> t;
 				if (d2 == "")break;
@@ -213,13 +246,11 @@ int main() {
 				if (temp_temper[i] > 4928)
 					current_temper_data.push_back(temp_temper[i]);
 			}
-
-			if (remove(pyro_files[i].c_str()) != 0) {
+			infile.close();
+			if (remove((pyro_txt_file + "\\" + pyro_files[i]).c_str()) != 0) {
 				perror("Error deleting file");
 				return 0;
 			}
-			else
-				puts("File successfully deleted");
 		}
 		for (auto& d : current_temper_data) {
 			layer_temper_data.push_back(d);
@@ -238,16 +269,15 @@ int main() {
 				Time layer_start_time = current_temepr_time;
 				layer_start_time.millisecond += i * 10;
 				checkTime(layer_start_time);
-				ofstream csv;
-				csv.open(output);
+				ofstream csv(output, ios::out | ios::app);
+				//csv.open(output);
 				csv << "Layer " << layer << " start at " << layer_start_time << "\n";
 				csv.close();
 			}
 
-			for (int j = 0; j < check_window_layer.size() - 1; j++) {
-				check_window_layer[j] = check_window_layer[j + 1];
-				check_window_layer.back() = temp_temper;
-			}
+			check_window_layer[check_window_layer_index] = temp_temper;
+			check_window_layer_index %= check_window_layer.size();
+
 			if (state_waitting_layer == false) {
 				wait_time_layer += 1;
 			}
@@ -256,14 +286,15 @@ int main() {
 			if ((wait_time_layer > (double)50000) && mean(check_window_layer) < (double)5010) {
 				state_waitting_layer = true;
 				pyro_calculate_features = true;
+				wait_time_layer = 0;
 				if (layer == next_layer) {
 					//write pyro time
 					layer_end_time = current_temepr_time;
 					layer_end_time.millisecond += i * 10;
 					checkTime(layer_end_time);
 
-					ofstream csv;
-					csv.open(output);
+					ofstream csv(output, ios::out | ios::app);
+					//csv.open(output);
 					csv << "Layer " << layer << " end at " << layer_end_time << "\n";
 					csv.close();
 					next_layer += 1;
@@ -274,23 +305,22 @@ int main() {
 		checkTime(current_temepr_time);
 		//讀取圖像資料，並串聯起來
 		//read image data and concate
-
 		vector<vector<double>> current_image_feature;
 
 		for (int i = 0; i < image_files.size(); i++) {
 
 			char h[15], m[15], s[16], ms[15];
-			istringstream ss(getfilename(image_files[i]));
+			istringstream ss(getfilename(image_csv_file + "\\" + image_files[i]));
 			sscanf(ss.str().c_str(), "%[^_]_%[^_]_%[^_]_%s", h, m, s, ms);
 			string filename_combine = date + ' ' + string(h) + ":"+ string(m) + ":"+ string(s) + '.'+ string(ms) + '0';
-			cout << filename_combine << endl;
+			//cout << filename_combine << endl;
 			Time filetime;
-			sscanf(ss.str().c_str(), "%d/%d/%d video-%d:%d:%d.%d", &filetime.year, &filetime.month, &filetime.day,
+			sscanf(filename_combine.c_str(), "%d/%d/%d video-%d:%d:%d.%d", &filetime.year, &filetime.month, &filetime.day,
 				&filetime.hour, &filetime.min, &filetime.second, &filetime.millisecond);
 
 			vector<vector<double>> temp_feature;
 
-			ifstream infile(image_files[i]);
+			ifstream infile(image_csv_file + "\\" + image_files[i]);
 			getline(infile, line);
 			string d1, d2, t;
 			while (getline(infile, line)) {
@@ -308,9 +338,12 @@ int main() {
 				Timetag[j].millisecond = Timetag[j - 1].millisecond + 400;
 				checkTime(Timetag[i]);
 			}
+
 			vector<vector<double>> feature_remove = temp_feature;
 			vector<vector<double>> feature_final;
 			vector<Time> Timetag_copy;
+
+			// remove too big meltpool
 			for (int j = 0; j < temp_feature.size(); j++) {
 				//length and Width 
 				if (feature_remove[j][0] < 30 && feature_remove[j][1] < 30) {
@@ -326,13 +359,10 @@ int main() {
 				image_calculate_features = true;
 
 
-			if (remove(image_files[i].c_str()) != 0) {
+			if (remove((image_csv_file + "\\" + image_files[i]).c_str()) != 0) {
 				perror("Error deleting file");
 				return 0;
 			}
-			else
-				puts("File successfully deleted");
-
 		}
 
 		for (int j = 0; j < current_image_feature.size(); j++) {
@@ -369,9 +399,9 @@ int main() {
 				}
 			}
 			//calculate image features
-			vector<vector<double>> AVM_image_features = calculate_image_indicator(layer_image_feature,Sample_no);
-			ofstream csv;
-			csv.open(layer + "\\layer_" + to_string(layer) + "_feature.csv");
+			vector<vector<double>> AVM_image_features = calculate_indicator(layer_image_feature,Sample_no);
+			ofstream csv(layer + "\\layer_" + to_string(layer) + "_feature.csv", ios::out | ios::app);
+			//csv.open(layer + "\\layer_" + to_string(layer) + "_feature.csv");
 			for (int i = 0; i < AVM_image_features_index->size(); i++) {
 				csv << AVM_image_features_index[i];
 				if (i != AVM_image_features_index->size() - 1)
@@ -403,7 +433,7 @@ int main() {
 	return 0;
 }
 
-string getfilename(string path)
+std::string getfilename(string path)
 {
 	path = path.substr(path.find_last_of("/\\") + 1);
 	size_t dot_i = path.find_last_of('.');
@@ -419,12 +449,23 @@ double mean(vector<double>& check_window_layer) {
 }
 
 void checkTime(Time& t) {
-	t.second = t.millisecond % 1000000;
-	t.min = t.second % 60;
-	t.hour = t.min % 60;
-	t.day = t.hour % 24;
-	t.month = t.day % 30;
-	t.year = t.month % 12;
+	t.second += t.millisecond / 1000000;
+	t.millisecond = t.millisecond % 1000000;
+
+	t.min += t.second / 60;
+	t.second = t.second % 60;
+
+	t.hour += t.min / 60;
+	t.min = t.min % 60;
+
+	t.day += t.hour / 24;
+	t.hour = t.hour % 24;
+
+	t.month += t.day / 30;
+	t.day = t.day % 30;
+
+	t.year += t.month / 12;
+	t.month = t.month % 12;
 }
 
 ostream & operator << (ostream &out, const Time &c)
@@ -509,7 +550,7 @@ double Kurtosis(vector<double>& arr, double std, double avg) {
 
 
 // Length, Width, X_center, Y_Center
-vector<vector<double>> calculate_image_indicator(vector<vector<double>>& layer_image_feature, vector<int>& Sample_no) {
+vector<vector<double>> calculate_indicator(vector<vector<double>>& layer_image_feature, vector<int>& Sample_no) {
 	vector<vector<double>> AVM_image_features;
 	vector<double> temp_sample_L;
 	vector<double> temp_sample_W;
@@ -559,4 +600,29 @@ vector<vector<double>> calculate_image_indicator(vector<vector<double>>& layer_i
 					temp_Width_quantile });
 
 	return AVM_image_features;
+}
+
+vector<string> split(const string& str, const string& delim) {
+	vector<string> res;
+	if ("" == str) return res;
+
+	char * strs = new char[str.length() + 1];
+	strcpy(strs, str.c_str());
+
+	char * d = new char[delim.length() + 1];
+	strcpy(d, delim.c_str());
+
+	char *p = strtok(strs, d);
+	while (p) {
+		string s = p;
+		res.push_back(s);
+		p = strtok(NULL, d);
+	}
+
+	return res;
+}
+
+inline bool exists(const std::string& name) {
+	struct stat buffer;
+	return (stat(name.c_str(), &buffer) == 0);
 }

@@ -40,7 +40,7 @@ def calculate_indicator (layer_image_feature,layer_temper_data_time,layer_temper
                                        'Temper_min','Temper_max','Temper_mean','Temper_var','Temper_std','Temper_skew',
                                        'Temper_kurt','Temper_1quantile','Temper_2quantile','Temper_3quantile','Temper_range',
                                        'Temper_quantile',
-                                       ])  
+                                       ])
     #segment each sample time
     sample_no_array =  np.array(layer_image_feature.Sample_no,dtype=int)
     
