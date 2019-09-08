@@ -102,8 +102,8 @@ int main() {
 	for (int i = 0; i < pyro_simulation.size(); i++) {
 		vector<string> time_idx;
 		time_idx = split(pyro_simulation[i], "_");
-		double t = atoi(time_idx[0].c_str()) * 3600 + atoi(time_idx[0].c_str())*60
-			+ atoi(time_idx[0].c_str()) + atoi(time_idx[0].c_str())/1000000;
+		double t = atoi(time_idx[0].c_str()) * 3600.0f + atoi(time_idx[1].c_str())*60.0f
+			+ atoi(time_idx[2].c_str()) + atoi(time_idx[3].c_str())/1000000.0f;
 		pyro_simu_time.push_back(t);
 	}
 	cout << "pyro_simu_time.size() = " << pyro_simu_time.size() << endl;
@@ -112,15 +112,20 @@ int main() {
 	for (int i = 0; i < image_simulation.size(); i++) {
 		vector<string> time_idx;
 		time_idx = split(split(image_simulation[i], "-")[1],"_");
-		double t = atoi(time_idx[0].c_str()) * 3600.0f + atoi(time_idx[0].c_str()) * 60.0f
-			+ atoi(time_idx[0].c_str()) + atoi(time_idx[0].c_str()) / 1000000.0f;
+		double t = atoi(time_idx[0].c_str()) * 3600.0f + atoi(time_idx[1].c_str()) * 60.0f
+			+ atoi(time_idx[2].c_str()) + atoi(time_idx[3].c_str()) / 1000000.0f;
 		image_simu_time.push_back({t,0});
 	}
 	for (int i = 0; i < pyro_simulation.size()/30; i++) {
+		vector<bool> c(image_simu_time.size(), true);
 		for (int j = 0; j < image_simu_time.size(); j++) {
-			bool c = image_simu_time[j][0] < pyro_simu_time[int(pyro_simulation.size() / 30 - i) * 30];
-			if (c)
-				image_simu_time[j][1] = int(pyro_simulation.size() / 30) - i - 1;
+			c[j] = image_simu_time[j][0] < pyro_simu_time[int(pyro_simulation.size() / 30.0f - i) * 30];
+		}
+		for (int j = 0; j < image_simu_time.size(); j++) {
+			if (c[j]) {
+				image_simu_time[j][1] = int(pyro_simulation.size() / 30.0f) - i - 1;
+				cout << image_simu_time[j][1] << endl;
+			}
 		}
 	}
 	
@@ -242,9 +247,9 @@ int main() {
 			}
 			vector<double> temp_temper(temp_array.size());
 			for (int j = 0; j < temp_temper.size(); j++) {
-				temp_temper[i] = ((temp_array[i][0] * pow(2, 8) + temp_array[i][1]) * 0.061257618916352723 + 492.77160096787043) * 10;
-				if (temp_temper[i] > 4928)
-					current_temper_data.push_back(temp_temper[i]);
+				temp_temper[j] = ((temp_array[j][0] * pow(2, 8) + temp_array[j][1]) * 0.061257618916352723 + 492.77160096787043) * 10;
+				if (temp_temper[j] > 4928)
+					current_temper_data.push_back(temp_temper[j]);
 			}
 			infile.close();
 			if (remove((pyro_txt_file + "\\" + pyro_files[i]).c_str()) != 0) {
