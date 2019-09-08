@@ -12,6 +12,10 @@ Download project
 ```shell
 git clone https://github.com/pingsutw/Extractfeature.git
 ```
+## Download sample input 
+```shell
+https://drive.google.com/drive/folders/1cLeVbbSnbldD_98JT_J4XSArp3bB1GvL?fbclid=IwAR2qzsas_gXLIzdrnleRVCJR2ZoW_FVulUou4G7TtKtLx-9J8C9l-aOdTpc
+```
 ### Windows
 Open with MSVC
 ```
