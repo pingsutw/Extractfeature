@@ -27,7 +27,7 @@
 using namespace std;
 namespace fs = std::experimental::filesystem;
 
-string file_prefix = "C:\\Users\\kevin\\Desktop\\";
+string file_prefix = "C:\\Users\\yoyo\\data\\";
 
 string image_csv_simulation = file_prefix + "0724csv_1_simulation";
 string pyro_txt_simulation = file_prefix + "0724pyro_1_simulation";
@@ -104,7 +104,7 @@ int main() {
 		vector<string> time_idx;
 		time_idx = split(pyro_simulation[i], "_");
 		double t = atoi(time_idx[0].c_str()) * 3600.0f + atoi(time_idx[1].c_str())*60.0f
-			+ atoi(time_idx[2].c_str()) + atoi(time_idx[3].c_str())/1000000.0f;
+			+ atoi(time_idx[2].c_str()) + atoi(time_idx[3].c_str())/100000.0f;
 		pyro_simu_time.push_back(t);
 	}
 	cout << "pyro_simu_time.size() = " << pyro_simu_time.size() << endl;
@@ -114,7 +114,7 @@ int main() {
 		vector<string> time_idx;
 		time_idx = split(split(image_simulation[i], "-")[1],"_");
 		double t = atoi(time_idx[0].c_str()) * 3600.0f + atoi(time_idx[1].c_str()) * 60.0f
-			+ atoi(time_idx[2].c_str()) + atoi(time_idx[3].c_str()) / 1000000.0f;
+			+ atoi(time_idx[2].c_str()) + atoi(time_idx[3].c_str()) / 100000.0f;
 		image_simu_time.push_back({t,0});
 	}
 	for (int i = 0; i < pyro_simulation.size()/30; i++) {
@@ -223,7 +223,7 @@ int main() {
 			//cout << ss.str() << endl;
 
 			layer_end_time = pyro_start_time;
-			layer_end_time.day + 1;
+			layer_end_time.day += 1;
 			checkTime(layer_end_time);
 
 			ofstream csv(output_path, ios::out | ios::app);
@@ -242,7 +242,7 @@ int main() {
 				//cout << d1 << endl;
 				getline(infile, d2, ',');
 				vector<double> t;
-				if (d2 == "")break;
+				if (d2 == "") break;
 				t.push_back(atof(d1.c_str()));
 				t.push_back(atof(d2.c_str()));
 				temp_array.push_back(t);
@@ -283,6 +283,7 @@ int main() {
 			}
 
 			check_window_layer[check_window_layer_index] = temp_temper;
+			check_window_layer_index += 1;
 			check_window_layer_index %= check_window_layer.size();
 
 			if (state_waitting_layer == false) {
@@ -290,7 +291,7 @@ int main() {
 			}
 			//double mean = accumulate(check_window_layer.begin(), check_window_layer.end(), 0.0) / check_window_layer.size();
 			double d;
-			if ((wait_time_layer > (double)50000) && mean(check_window_layer) < (double)5010) {
+			if ((wait_time_layer > (double)20000) && mean(check_window_layer) < (double)5010) {
 				state_waitting_layer = true;
 				pyro_calculate_features = true;
 				wait_time_layer = 0;
