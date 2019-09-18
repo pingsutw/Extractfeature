@@ -27,7 +27,7 @@
 using namespace std;
 namespace fs = std::experimental::filesystem;
 
-string file_prefix = "C:\\Users\\yoyo\\data\\";
+string file_prefix = "C:\\Users\\kevin\\Desktop\\";
 
 string image_csv_simulation = file_prefix + "0724csv_1_simulation";
 string pyro_txt_simulation = file_prefix + "0724pyro_1_simulation";
@@ -45,7 +45,10 @@ string AVM_image_features_index[] = { "Length_min","Length_max","Length_mean","L
 									   "Length_quantile",
 									   "Width_min","Width_max","Width_mean","Width_var","Width_std","Width_skew",
 									   "Width_kurt","Width_1quantile","Width_2quantile","Width_3quantile","Width_range",
-									   "Width_quantile"};
+									   "Width_quantile"
+									   "Temper_min","Temper_max","Temper_mean","Temper_var","Temper_std","Temper_skew",
+									   "Temper_kurt","Temper_1quantile","Temper_2quantile","Temper_3quantile","Temper_range",
+									   "Temper_quantile"};
 
 struct Time {
 	int year = 0;
@@ -67,6 +70,16 @@ struct Time {
 		return false;
 	}
 
+	double operator - (Time const &t) {
+		double s;
+		s += (year - t.year) * 365 * 24 * 3600;
+		s += (month - t.month) * 30 * 24 * 3600;
+		s += (day - t.day) * 24 * 3600;
+		s += (hour - t.hour) * 3600;
+		s += (second - t.second);
+		s += (millisecond - t.millisecond) / 100000;
+		return s;
+	}
 };
 
 std::string getfilename(string path);
@@ -76,7 +89,7 @@ double mean(vector<double>& check_window_layer);
 void getCurrentTime();
 bool isInsidePolygon(vector<double>& pt, vector<vector<double>>& poly);
 vector<vector<double>> calculate_indicator(vector<vector<double>>& layer_image_feature, 
-	Time& layer_temper_data_time, vector<double>& layer_temper_data, vector<Time>& Timetag_copy);
+Time& layer_temper_data_time, vector<double>& layer_temper_data, vector<Time>& Timetag_copy);
 double sum(const vector<double>& numbers);
 double computeSampleVariance(const double mean, const std::vector<double>& numbers);
 double skewness(vector<double>& arr, double std);
@@ -84,6 +97,7 @@ template <typename T1, typename T2> typename T1::value_type quant(const T1 &x, T
 double Kurtosis(vector<double>& arr, double std, double mean);
 vector<string> split(const string& str, const string& delim);
 inline bool exists(const std::string& name);
+void csv_write(ofstream, vector<double> & data);
 
 int main() {
 	ios_base::sync_with_stdio(false);
@@ -362,7 +376,7 @@ int main() {
 			for (int j = 0; j < feature_final.size(); j++) {
 				current_image_feature.push_back(feature_final[j]);
 			}
-			if (state_waitting_layer == false && (layer_end_time < filetime))
+			if (state_waitting_layer == true && (layer_end_time < filetime))
 				image_calculate_features = true;
 
 
@@ -403,38 +417,52 @@ int main() {
 				for (int j = 0; j < sample_position.size(); j++) {
 					bool f = isInsidePolygon(position[i], sample_position[j]);
 					if (f == true) {
+						// layer_image_feature[Sample_no]
 						layer_image_feature[i].push_back(j + 1);
 						break;
+					}
+					else {
+						layer_image_feature[i].push_back(0);
 					}
 				}
 			}
 			//calculate image features
 			vector<vector<double>> AVM_image_features = calculate_indicator(layer_image_feature, 
 				layer_temper_data_time, layer_temper_data, Timetag_copy);
-			ofstream csv(layer_path + "\\layer_" + to_string(layer) + "_feature.csv", ios::out | ios::app);
-			//csv.open(layer + "\\layer_" + to_string(layer) + "_feature.csv");
+			
+			ofstream csv(layer_path + "\\layer_" + to_string(layer_temper_data_time.hour) + "_"+
+				to_string(layer_temper_data_time.min) + "_" +  to_string(layer_temper_data_time.second)
+				+ "_" + to_string(layer_temper_data_time.millisecond)
+				+ ".txt", ios::out | ios::app);
+			for (double& item : layer_temper_data) {
+				csv << to_string(item) << "\n";
+			}
+			csv.close();
+			
+			ofstream csv1(layer_path + "\\layer_" + to_string(layer) + "_feature.csv", ios::out | ios::app);
+			// write column name string 
 			for (int i = 0; i < AVM_image_features_index->size(); i++) {
-				csv << AVM_image_features_index[i];
+				csv1 << AVM_image_features_index[i];
 				if (i != AVM_image_features_index->size() - 1)
-					csv << ",";
+					csv1 << ",";
 				else
-					csv << "\n";
+					csv1 << "\n";
 			}
 			
-
 			for (auto& feature : AVM_image_features) {
 				for (int i = 0; i < feature.size(); i++) {
-					csv << feature[i];
+					csv1 << feature[i];
 					if (i != feature.size() - 1)
-						csv << ",";
+						csv1 << ",";
 					else 
-						csv << "\n";
+						csv1 << "\n";
 				}
 			}
+			csv1.close();
+
 			layer_temper_data_time.millisecond += layer_temper_data.size() * 10;
 			checkTime(layer_temper_data_time);
 
-			csv.close();
 			layer_temper_data.clear();
 			pyro_calculate_features = false;
 			image_calculate_features = false;
@@ -570,53 +598,114 @@ vector<vector<double>> calculate_indicator(vector<vector<double>>& layer_image_f
 	vector<double> temp_sample_L;
 	vector<double> temp_sample_W;
 
-	int ma_sample = 0;
+	int max_sample = 0;
 	for (int i = 0; i < layer_image_feature.size(); i++) {
-		ma_sample = max(ma_sample, layer_image_feature[i].back());
+		max_sample = max(max_sample, layer_image_feature[i].back());
 	}
-	for (int i = 0; i < ma_sample; i++) {
+	for (int i = 0; i < max_sample; i++) {
+		
+		// python : temp_sample=layer_image_feature[sample_filter].copy()
 		for (int j = 0; j < layer_image_feature.size(); j++) {
 			if (layer_image_feature[j].back() == i) {
 				temp_sample_L.push_back(layer_image_feature[j][0]);
 				temp_sample_W.push_back(layer_image_feature[j][1]);
 			}
 		}
+		double temp_Length_min = *min_element(temp_sample_L.begin(), temp_sample_L.end());
+		double temp_Length_max = *max_element(temp_sample_L.begin(), temp_sample_L.end());
+		double temp_Length_mean = mean(temp_sample_L);
+		double temp_Length_var = computeSampleVariance(temp_Length_mean, temp_sample_L);
+		double temp_Length_std = sqrt(temp_Length_var);
+		double temp_Length_skew = skewness(temp_sample_L, temp_Length_std);
+		double temp_Length_kurt = Kurtosis(temp_sample_L, temp_Length_std, temp_Length_mean);
+		double temp_Length_1quantile = quant(temp_sample_L, 0.25);
+		double temp_Length_2quantile = quant(temp_sample_L, 0.5);
+		double temp_Length_3quantile = quant(temp_sample_L, 0.75);
+		double temp_Length_range = temp_Length_max - temp_Length_min;
+		double temp_Length_quantile = temp_Length_3quantile - temp_Length_1quantile;
+
+
+		double temp_Width_min = *min_element(temp_sample_W.begin(), temp_sample_W.end());
+		double temp_Width_max = *max_element(temp_sample_W.begin(), temp_sample_W.end());
+		double temp_Width_mean = mean(temp_sample_W);
+		double temp_Width_var = computeSampleVariance(temp_Width_mean, temp_sample_W);
+		double temp_Width_std = sqrt(temp_Width_var);
+		double temp_Width_skew = skewness(temp_sample_W, temp_Width_std);
+		double temp_Width_kurt = Kurtosis(temp_sample_W, temp_Width_std, temp_Width_mean);
+		double temp_Width_1quantile = quant(temp_sample_W, 0.25);
+		double temp_Width_2quantile = quant(temp_sample_W, 0.50);
+		double temp_Width_3quantile = quant(temp_sample_W, 0.75);
+		double temp_Width_range = temp_Width_max - temp_Width_min;
+		double temp_Width_quantile = temp_Width_3quantile - temp_Width_1quantile;
+
+		// calculate temper features
+		vector<int> idx;
+		for (int j = 0; j < layer_image_feature.size(); j++) {
+			if (layer_image_feature[j].back() == i + 1)
+				idx.push_back(j);
+		}
+
+		// start time 
+		// Todo : fix quant error
+		int seg_idx_1 = INT_MAX;
+		double tmp = quant(idx, 0.25) - 1.5*quant(idx, 0.75) - quant(idx, 0.25);
+		for (int j = 0; j < idx.size(); j++) {
+			seg_idx_1 = min(seg_idx_1, abs(idx[j] - tmp));
+		}
+
+		ofstream pyro_time_writer( file_prefix + "pyro_layer_time1.txt", ios::out | ios::app);
+		pyro_time_writer << "sample " + to_string(i + 1) + "start:";
+		pyro_time_writer << Timetag_copy[idx[seg_idx_1 + 1]] << "\n";
+		pyro_time_writer.close();
+
+		int temper_start_seg_idx = (Timetag_copy[idx[seg_idx_1 + 1]] - layer_temper_data_time) * 100000;
+
+		// end time 
+		int seg_idx_2 = INT_MAX;
+		tmp = quant(idx, 0.75) + 1.5*quant(idx, 0.75) - quant(idx, 0.25);
+		for (int j = 0; j < idx.size(); j++) {
+			seg_idx_2 = min(seg_idx_2, abs(idx[j] - tmp));
+		}
+
+		ofstream pyro_time_writer1(file_prefix + "pyro_layer_time1.txt", ios::out | ios::app);
+		pyro_time_writer1 << "sample " + to_string(i + 1) + "end:";
+		pyro_time_writer1 << Timetag_copy[idx[seg_idx_2 - 1]];
+		pyro_time_writer1 << "\n";
+		pyro_time_writer1.close();
+
+		int temper_end_seg_idx = (Timetag_copy[idx[seg_idx_2 - 1]] - layer_temper_data_time) * 100000;
+
+		vector<double> temp_temper;
+		for (int j = temper_start_seg_idx; j < temper_end_seg_idx; j++) {
+			temp_temper.push_back(layer_temper_data[j]);
+		}
+
+		double temp_Temper_min = *min_element(temp_temper.begin(), temp_temper.end());
+		double temp_Temper_max = *max_element(temp_temper.begin(), temp_temper.end());
+		double temp_Temper_mean = mean(temp_temper);
+		double temp_Temper_var = computeSampleVariance(temp_Temper_mean, temp_temper);
+		double temp_Temper_std = sqrt(temp_Temper_var);
+		double temp_Temper_skew = skewness(temp_temper, temp_Temper_std);
+		double temp_Temper_kurt = Kurtosis(temp_temper, temp_Temper_std, temp_Temper_mean);
+		double temp_Temper_1quantile = quant(temp_temper, 0.25);
+		double temp_Temper_2quantile = quant(temp_temper, 0.50);
+		double temp_Temper_3quantile = quant(temp_temper, 0.75);
+		double temp_Temper_range = temp_Temper_max - temp_Temper_min;
+		double temp_Temper_quantile = temp_Temper_3quantile - temp_Temper_1quantile;
+
+
+		AVM_image_features.push_back({ temp_Length_min, temp_Length_max, temp_Length_mean, temp_Length_var, temp_Length_std,
+				temp_Length_skew, temp_Length_kurt, temp_Length_1quantile, temp_Length_2quantile,temp_Length_3quantile,
+				temp_Length_range, temp_Length_quantile,
+				temp_Width_min, temp_Width_max, temp_Width_mean, temp_Width_var, temp_Width_std, temp_Width_skew,
+				temp_Width_kurt, temp_Width_1quantile, temp_Width_2quantile, temp_Width_3quantile, temp_Width_range,
+				temp_Width_quantile,
+				temp_Temper_min, temp_Temper_max, temp_Temper_mean, temp_Temper_var, temp_Temper_std, temp_Temper_skew,
+				temp_Temper_kurt, temp_Temper_1quantile, temp_Temper_2quantile, temp_Temper_3quantile,temp_Temper_range,
+				temp_Temper_quantile
+			});
 	}
-
-	double temp_Length_min = *min_element(temp_sample_L.begin(), temp_sample_L.end());
-	double temp_Length_max = *max_element(temp_sample_L.begin(), temp_sample_L.end());
-	double temp_Length_mean = mean(temp_sample_L);
-	double temp_Length_var = computeSampleVariance(temp_Length_mean, temp_sample_L);
-	double temp_Length_std = sqrt(temp_Length_var);
-	double temp_Length_skew = skewness(temp_sample_L, temp_Length_std);
-	double temp_Length_kurt = Kurtosis(temp_sample_L, temp_Length_std, temp_Length_mean);
-	double temp_Length_1quantile = quant(temp_sample_L, 0.25);
-	double temp_Length_2quantile = quant(temp_sample_L, 0.5);
-	double temp_Length_3quantile = quant(temp_sample_L, 0.75);
-	double temp_Length_range = temp_Length_max - temp_Length_min;
-	double temp_Length_quantile = temp_Length_3quantile - temp_Length_1quantile;
-
-
-	double temp_Width_min = *min_element(temp_sample_W.begin(), temp_sample_W.end());
-	double temp_Width_max = *max_element(temp_sample_W.begin(), temp_sample_W.end());
-	double temp_Width_mean = mean(temp_sample_W);
-	double temp_Width_var = computeSampleVariance(temp_Width_mean, temp_sample_W);
-	double temp_Width_std = sqrt(temp_Width_var);
-	double temp_Width_skew = skewness(temp_sample_W, temp_Width_std);
-	double temp_Width_kurt = Kurtosis(temp_sample_W, temp_Width_std, temp_Width_mean);
-	double temp_Width_1quantile = quant(temp_sample_W, 0.25);
-	double temp_Width_2quantile =  quant(temp_sample_W, 0.50);
-	double temp_Width_3quantile = quant(temp_sample_W, 0.75);
-	double temp_Width_range= temp_Width_max - temp_Width_min;
-	double temp_Width_quantile = temp_Width_3quantile - temp_Width_1quantile;
-
-	AVM_image_features.push_back({ temp_Length_min, temp_Length_max, temp_Length_mean, temp_Length_var, temp_Length_std,
-					temp_Length_skew, temp_Length_kurt, temp_Length_1quantile, temp_Length_2quantile,temp_Length_3quantile,
-					temp_Length_range, temp_Length_quantile,
-					temp_Width_min, temp_Width_max, temp_Width_mean, temp_Width_var, temp_Width_std, temp_Width_skew,
-					temp_Width_kurt, temp_Width_1quantile, temp_Width_2quantile, temp_Width_3quantile, temp_Width_range,
-					temp_Width_quantile });
-
+	
 	return AVM_image_features;
 }
 
@@ -643,4 +732,14 @@ vector<string> split(const string& str, const string& delim) {
 inline bool exists(const std::string& name) {
 	struct stat buffer;
 	return (stat(name.c_str(), &buffer) == 0);
+}
+
+void csv_write(ofstream csv, vector<double> & data) {
+	for (int i = 0; i < data.size(); i++) {
+		csv << data[i];
+		if (i != data.size() - 1)
+			csv << ",";
+		else
+			csv << "\n";
+	}
 }
