@@ -648,7 +648,7 @@ vector<vector<double>> calculate_indicator(vector<vector<double>>& layer_image_f
 		// start time 
 		// Todo : fix quant error
 		int seg_idx_1 = INT_MAX;
-		double tmp = quant(idx, 0.25) - 1.5*quant(idx, 0.75) - quant(idx, 0.25);
+		double tmp = quant(idx, 0.25) - 1.5*(quant(idx, 0.75) - quant(idx, 0.25));
 		for (int j = 0; j < idx.size(); j++) {
 			seg_idx_1 = min(seg_idx_1, abs(idx[j] - tmp));
 		}
@@ -662,7 +662,7 @@ vector<vector<double>> calculate_indicator(vector<vector<double>>& layer_image_f
 
 		// end time 
 		int seg_idx_2 = INT_MAX;
-		tmp = quant(idx, 0.75) + 1.5*quant(idx, 0.75) - quant(idx, 0.25);
+		tmp = quant(idx, 0.75) + 1.5*(quant(idx, 0.75) - quant(idx, 0.25));
 		for (int j = 0; j < idx.size(); j++) {
 			seg_idx_2 = min(seg_idx_2, abs(idx[j] - tmp));
 		}
