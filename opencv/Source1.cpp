@@ -34,7 +34,7 @@ string pyro_txt_simulation = file_prefix + "0724pyro_1_simulation";
 
 string date = "2019/07/24";
 string image_csv_file = file_prefix +"0724csv_1";
-string pyro_txt_file = file_prefix + "0724pyro_1";  
+string pyro_txt_file = file_prefix + "0724pyro_1";
 string sample_position_path = file_prefix + "sample_position.csv";
 
 string output_path = file_prefix + "pyro_layer_time1.txt";
