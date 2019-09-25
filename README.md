@@ -2,6 +2,7 @@
 
 TODO : introduction
 
+
 ## Pre-requested 
 * C++ or python basic 
 * OpenCV skills 
@@ -31,3 +32,9 @@ g++ ./opencv/source.cpp -o output `pkg-config --cflags --libs opencv`
 1. Dectet point of laser on the metal 
 2. real time analyze
 3. reduce flaw of of manufacture product 
+
+
+## To-do
+1.溫度串接加速  
+2.計算特徵 減少重複呼叫 
+3.跑太久的特徵 考慮刪除
