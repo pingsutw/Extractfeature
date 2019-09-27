@@ -100,18 +100,18 @@ def calculate_indicator (layer_image_feature,layer_temper_data_time,layer_temper
         
         temper_end_seg_idx = (layer_image_feature.Timetag.iloc[idx[seg_idx_2-1]]-layer_temper_data_time).total_seconds()*100000
         
-        temp_temper = np.array(layer_temper_data[int(temper_start_seg_idx):int(temper_end_seg_idx)],dtype=float)
+        temp_temper_array = np.array(layer_temper_data[int(temper_start_seg_idx):int(temper_end_seg_idx)],dtype=float)
         print(temper_start_seg_idx,temper_end_seg_idx)
-        temp_Temper_min=np.min(temp_temper)
-        temp_Temper_max=np.max(temp_temper)
-        temp_Temper_mean=np.mean(temp_temper)
-        temp_Temper_var=np.var(temp_temper)
-        temp_Temper_std=np.std(temp_temper)
-        temp_Temper_skew=pd.DataFrame(temp_temper).skew()[0]
-        temp_Temper_kurt=pd.DataFrame(temp_temper).kurtosis()[0]
-        temp_Temper_1quantile=np.quantile(temp_temper,0.25)
-        temp_Temper_2quantile=np.quantile(temp_temper,0.5)
-        temp_Temper_3quantile=np.quantile(temp_temper,0.75)
+        temp_Temper_min=np.min(temp_temper_array)
+        temp_Temper_max=np.max(temp_temper_array)
+        temp_Temper_mean=np.mean(temp_temper_array)
+        temp_Temper_var=np.var(temp_temper_array)
+        temp_Temper_std=np.std(temp_temper_array)
+        temp_Temper_skew=pd.DataFrame(temp_temper_array).skew()[0]
+        temp_Temper_kurt=pd.DataFrame(temp_temper_array).kurtosis()[0]
+        temp_Temper_1quantile=np.quantile(temp_temper_array,0.25)
+        temp_Temper_2quantile=np.quantile(temp_temper_array,0.5)
+        temp_Temper_3quantile=np.quantile(temp_temper_array,0.75)
         temp_Temper_range=temp_Temper_max-temp_Temper_min
         temp_Temper_quantile=temp_Temper_3quantile-temp_Temper_1quantile        
         
