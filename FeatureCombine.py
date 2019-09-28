@@ -443,18 +443,20 @@ while True:   #continous loop
         #initial feature sample_no        
         layer_image_feature['Sample_no'] = 0
         
-        #------------------------------
-        #這裡最慢
-        #allocate sample number
-        for i in range (len(layer_image_feature)):
-            for j in range (len(sample_position)):
-                c = isInsidePolygon(position[i],sample_position[j])
-                if c==True:
-                    layer_image_feature.iloc[i,-1]=j+1
-                    break
+        #(已加速)這一段有warning但不影響結果，找時間會修好
+        #allocate sample number 
+        for i in range (len(sample_position)):
         
-        #這裡最慢
-        #------------------------------
+            all_pt=np.repeat(position, 4, axis=0).reshape(-1,4,2)
+            all_poly=np.tile(sample_position[i], [len(position),1]).reshape(-1,4,2)
+            check_all= (np.roll(all_poly,1,axis=1)-all_poly)*np.roll((all_pt-all_poly),1,axis=2)
+            check = check_all[:,:,0]-check_all[:,:,1]
+            
+            check_sort=np.sort(check,axis=1)
+
+            layer_image_feature['Sample_no'][(check_sort[:,0]>=0)]=i+1
+            layer_image_feature['Sample_no'][(check_sort[:,3]<=0)]=i+1
+        #(已加速)這一段有warning但不影響結果，找時間會修好    
         
         print(layer_temper_data_time)
         print(layer_image_feature['Timetag'].iloc[0])
