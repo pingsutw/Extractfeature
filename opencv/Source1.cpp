@@ -25,9 +25,10 @@
 #define _CRT_SECURE_NO_WARNINGS
 
 using namespace std;
+//using std::begin, std::end;
 namespace fs = std::experimental::filesystem;
 
-string file_prefix = "C:\\Users\\kevin\\Desktop\\";
+string file_prefix = "C:\\Users\\yoyo\\data\\";
 
 string image_csv_simulation = file_prefix + "0724csv_1_simulation";
 string pyro_txt_simulation = file_prefix + "0724pyro_1_simulation";
@@ -185,7 +186,7 @@ int main() {
 	Time layer_end_time;
 	Time layer_temper_data_time;
 	Time current_temepr_time;
-
+	vector<double> remain_temper;
 	vector<double> layer_temper_data;
 
 	// continous loop
@@ -276,9 +277,88 @@ int main() {
 		for (auto& d : current_temper_data) {
 			layer_temper_data.push_back(d);
 		}
-		/*利用moving windows尋找每層開始以及結束時間點
-			check the layer segment point
-			current_temper_data = np.array(current_temper_data, dtype = float)*/
+		/*	利用moving windows尋找每層開始以及結束時間點
+			如果沒雷射的時候，逐點確認
+			有雷射的時候，每0.1秒(10000)跳著確認*/
+		
+		remain_temper.insert(end(remain_temper), begin(current_temper_data), end(current_temper_data)); //把剩的串接起來
+		bool leave = false;
+		int no = 0;
+		int remain_len = remain_temper.size();
+
+		while (remain_len > 10000) {
+			if (leave) {
+				break;
+			}
+
+			while (state_waitting_layer) {
+				if (remain_temper[no] > 5020) {
+					layer += 1;
+					state_waitting_layer = false;
+					wait_time_layer = 0;
+
+					//write pyro time
+					Time layer_start_time = current_temepr_time;
+					layer_start_time.millisecond += (no + 1) * 10;
+					checkTime(layer_start_time);
+					ofstream csv(output_path, ios::out | ios::app);
+					//csv.open(output);
+					csv << "Layer " << layer << " start at " << layer_start_time << "\n";
+					csv.close();
+				}
+
+				no += 1;
+				remain_len -= 1;
+				if (no == remain_temper.size()) {
+					break;
+				}
+			}
+
+			if (no == remain_temper.size()) {
+				vector<double> remain_temper;
+				break;
+			} else {
+				remain_temper.erase(remain_temper.begin(), (remain_temper.begin() + no));
+			}
+
+			if (!state_waitting_layer) {
+				
+				// to-do
+	
+
+
+
+
+			}
+				
+
+
+
+
+
+		}// while
+		
+		
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+		///////////////// remove
 		for (int i = 0; i < current_temper_data.size(); i++) {
 			double temp_temper = current_temper_data[i];
 			if (state_waitting_layer && (temp_temper > 5020)) {
@@ -325,6 +405,13 @@ int main() {
 		}
 		current_temepr_time.millisecond += current_temper_data.size() * 10;
 		checkTime(current_temepr_time);
+		/////////////////////// reomve
+
+
+
+
+
+
 		//讀取圖像資料，並串聯起來
 		//read image data and concate
 		vector<vector<double>> current_image_feature;
@@ -675,21 +762,22 @@ vector<vector<double>> calculate_indicator(vector<vector<double>>& layer_image_f
 
 		int temper_end_seg_idx = (Timetag_copy[idx[seg_idx_2 - 1]] - layer_temper_data_time) * 100000;
 
-		vector<double> temp_temper;
+		// rename "temp_temper" to "temp_temper_array"
+		vector<double> temp_temper_array;
 		for (int j = temper_start_seg_idx; j < temper_end_seg_idx; j++) {
-			temp_temper.push_back(layer_temper_data[j]);
+			temp_temper_array.push_back(layer_temper_data[j]);
 		}
 
-		double temp_Temper_min = *min_element(temp_temper.begin(), temp_temper.end());
-		double temp_Temper_max = *max_element(temp_temper.begin(), temp_temper.end());
-		double temp_Temper_mean = mean(temp_temper);
-		double temp_Temper_var = computeSampleVariance(temp_Temper_mean, temp_temper);
+		double temp_Temper_min = *min_element(temp_temper_array.begin(), temp_temper_array.end());
+		double temp_Temper_max = *max_element(temp_temper_array.begin(), temp_temper_array.end());
+		double temp_Temper_mean = mean(temp_temper_array);
+		double temp_Temper_var = computeSampleVariance(temp_Temper_mean, temp_temper_array);
 		double temp_Temper_std = sqrt(temp_Temper_var);
-		double temp_Temper_skew = skewness(temp_temper, temp_Temper_std);
-		double temp_Temper_kurt = Kurtosis(temp_temper, temp_Temper_std, temp_Temper_mean);
-		double temp_Temper_1quantile = quant(temp_temper, 0.25);
-		double temp_Temper_2quantile = quant(temp_temper, 0.50);
-		double temp_Temper_3quantile = quant(temp_temper, 0.75);
+		double temp_Temper_skew = skewness(temp_temper_array, temp_Temper_std);
+		double temp_Temper_kurt = Kurtosis(temp_temper_array, temp_Temper_std, temp_Temper_mean);
+		double temp_Temper_1quantile = quant(temp_temper_array, 0.25);
+		double temp_Temper_2quantile = quant(temp_temper_array, 0.50);
+		double temp_Temper_3quantile = quant(temp_temper_array, 0.75);
 		double temp_Temper_range = temp_Temper_max - temp_Temper_min;
 		double temp_Temper_quantile = temp_Temper_3quantile - temp_Temper_1quantile;
 
