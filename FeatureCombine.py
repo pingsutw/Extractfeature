@@ -443,6 +443,8 @@ while True:   #continous loop
         #initial feature sample_no        
         layer_image_feature['Sample_no'] = 0
         
+        #------------------------------
+        #這裡最慢
         #allocate sample number
         for i in range (len(layer_image_feature)):
             for j in range (len(sample_position)):
@@ -450,6 +452,9 @@ while True:   #continous loop
                 if c==True:
                     layer_image_feature.iloc[i,-1]=j+1
                     break
+        
+        #這裡最慢
+        #------------------------------
         
         print(layer_temper_data_time)
         print(layer_image_feature['Timetag'].iloc[0])
