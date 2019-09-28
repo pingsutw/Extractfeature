@@ -527,11 +527,14 @@ bool isInsidePolygon(vector<double>& pt, vector<vector<double>>& poly){
 	int i = -1;
 	int l = poly.size();
 	int j = l - 1;
-	while (i < l - 1) {
+	while (i < (l - 1)) {
 		i++;
-		if ((poly[i][0] <= pt[0] && pt[0] < poly[j][0]) or (poly[j][0] <= pt[0] && pt[0] < poly[i][0]))
-			if (pt[1] < (poly[j][1] - poly[i][1]) * (pt[0] - poly[i][0]) / (poly[j][0] - poly[i][0]) + poly[i][1])
+		if ((poly[i][0] <= pt[0] && pt[0] < poly[j][0]) || (poly[j][0] <= pt[0] && pt[0] < poly[i][0])) {
+			if (pt[1] < (poly[j][1] - poly[i][1]) * (pt[0] - poly[i][0]) / (poly[j][0] - poly[i][0]) + poly[i][1]) {
 				f = !f;
+			}
+		}
+			
 		j = i;
 	}
 	return f;
@@ -544,17 +547,13 @@ double sum(const vector<double>& numbers) {
 	return s;
 }
 
-double computeSampleVariance(const double mean, const std::vector<double>& numbers){
-	if (numbers.size() <= 1u)
-		return std::numeric_limits<double>::quiet_NaN();
-
-	auto add_square = [mean](double sum, int i)
-	{
-		auto d = i - mean;
-		return sum + d * d;
-	};
-	double total = std::accumulate(numbers.begin(), numbers.end(), 0.0, add_square);
-	return total / (numbers.size() - 1);
+double computeSampleVariance(const double mean, const vector<double>& arr){
+	int size = arr.size();
+	double var;
+	for (int i = 0; i < size; i++) {
+		var += (arr[i] - mean) * (arr[i] - mean);
+	}
+	return var / size;
 }
 
 double skewness(vector<double>& arr,double std) {
@@ -581,13 +580,12 @@ template <typename T1, typename T2> typename T1::value_type quant(const T1 &x, T
 }
 
 double Kurtosis(vector<double>& arr, double std, double avg) {
-	int k = 0;
+	double k;
 	int n = arr.size();
 	for(int i=0;i<n;i++)
 		k += (arr[i] - avg)*(arr[i] - avg)*(arr[i] - avg)*(arr[i] - avg);
 	k = k / (n*std*std*std*std);
-	return k;
-	k -= 3;
+	return k - 3;
 }
 
 
