@@ -100,18 +100,18 @@ def calculate_indicator (layer_image_feature,layer_temper_data_time,layer_temper
         
         temper_end_seg_idx = (layer_image_feature.Timetag.iloc[idx[seg_idx_2-1]]-layer_temper_data_time).total_seconds()*100000
         
-        temp_temper = np.array(layer_temper_data[int(temper_start_seg_idx):int(temper_end_seg_idx)],dtype=float)
-        
-        temp_Temper_min=np.min(temp_temper)
-        temp_Temper_max=np.max(temp_temper)
-        temp_Temper_mean=np.mean(temp_temper)
-        temp_Temper_var=np.var(temp_temper)
-        temp_Temper_std=np.std(temp_temper)
-        temp_Temper_skew=pd.DataFrame(temp_temper).skew()[0]
-        temp_Temper_kurt=pd.DataFrame(temp_temper).kurtosis()[0]
-        temp_Temper_1quantile=np.quantile(temp_temper,0.25)
-        temp_Temper_2quantile=np.quantile(temp_temper,0.5)
-        temp_Temper_3quantile=np.quantile(temp_temper,0.75)
+        temp_temper_array = np.array(layer_temper_data[int(temper_start_seg_idx):int(temper_end_seg_idx)],dtype=float)
+        print(temper_start_seg_idx,temper_end_seg_idx)
+        temp_Temper_min=np.min(temp_temper_array)
+        temp_Temper_max=np.max(temp_temper_array)
+        temp_Temper_mean=np.mean(temp_temper_array)
+        temp_Temper_var=np.var(temp_temper_array)
+        temp_Temper_std=np.std(temp_temper_array)
+        temp_Temper_skew=pd.DataFrame(temp_temper_array).skew()[0]
+        temp_Temper_kurt=pd.DataFrame(temp_temper_array).kurtosis()[0]
+        temp_Temper_1quantile=np.quantile(temp_temper_array,0.25)
+        temp_Temper_2quantile=np.quantile(temp_temper_array,0.5)
+        temp_Temper_3quantile=np.quantile(temp_temper_array,0.75)
         temp_Temper_range=temp_Temper_max-temp_Temper_min
         temp_Temper_quantile=temp_Temper_3quantile-temp_Temper_1quantile        
         
@@ -156,7 +156,7 @@ for i in image_simulation:
     t+=1
     
 for i in range (int(len(pyro_simulation)/30)):
-    c = image_simu_time[:,0]<pyro_simu_time[int(len(pyro_simulation)/30-i)*30]
+    c = image_simu_time[:,0]<(pyro_simu_time[int(len(pyro_simulation)/30-i)*30]-1)
     for j in range (len(image_simu_time)):
         if c[j]:
             image_simu_time[j,1]=int(len(pyro_simulation)/30)-i-1    
@@ -183,6 +183,8 @@ pyro_calculate_features, image_calculate_features= False , False
 check_window_layer = np.zeros(shape = (20000,))+5000  #0.2 seconds moving window
 state_waitting_layer = True # record if priting layer
 wait_time_layer=0 
+
+remain_temper=[]
 
 while True:   #continous loop
     print(datetime.now())
@@ -217,6 +219,7 @@ while True:   #continous loop
         
         layer_temper_data_time = pyro_start_time
         layer_end_time = pyro_start_time + timedelta(days=1) #first set long time
+        test=pyro_start_time #remove
         
         with open('pyro_layer_time.txt','a') as pyro_time_writer:
             pyro_time_writer.write('Pyro start at '+pyro_start_time.strftime('%Y/%m/%d-%H:%M:%S.%f')+'\n')
@@ -249,51 +252,88 @@ while True:   #continous loop
     
     layer_temper_data.extend(current_temper_data)
     
+    test=test+len(current_temper_data)*timedelta(microseconds=10) #remove please
+    print(test)
     
-    '''利用moving windows尋找每層開始以及結束時間點'''
-    #check the layer segment point
-    #current_temper_data = np.array(current_temper_data,dtype = float)
+    '''
+    利用moving windows尋找每層開始以及結束時間點
+    如果沒雷射的時候，逐點確認
+    有雷射的時候，每0.1秒(10000)跳著確認
+    '''
+    remain_temper.extend(current_temper_data)  #把剩的串接起來
     
-    for i in range (len(current_temper_data)):
-        temp_temper = current_temper_data[i]
-        
-        if state_waitting_layer & (temp_temper>5020):
-            layer += 1
-            state_waitting_layer = False
-            wait_time_layer=0
+    leave=False
+    no=0 #current calculate number
+    remain_len=len(remain_temper) 
+    #while (len(remain_temper)>10000):#(no<remain_len):
+    while (remain_len>10000):# or count==0):
+        if  leave:
+            break
+        while state_waitting_layer:
+            temp_temper = remain_temper[no]
+            if  temp_temper>5020:
+                layer += 1
+                state_waitting_layer = False
+                wait_time_layer=0
+                
+                #write pyro time
+                layer_start_time = current_temepr_time + (no+1)*timedelta(microseconds=10)
+                with open('pyro_layer_time.txt','a') as pyro_time_writer:
+                    pyro_time_writer.write('Layer '+str(layer)+' start at '+layer_start_time.strftime('%Y/%m/%d-%H:%M:%S.%f')+'\n')
+            no+=1
+            remain_len-=1
+            if no==len(remain_temper):
+                #remain_temper=[]
+                break
             
-            #write pyro time
-            layer_start_time = current_temepr_time + i*timedelta(microseconds=10)
-            #pyro_time_writer.write('Layer '+str(layer)+' start at'+layer_start_time.strftime('%Y/%m/%d-%H_%M_%S_%f')+'\n')
-            with open('pyro_layer_time.txt','a') as pyro_time_writer:
-                pyro_time_writer.write('Layer '+str(layer)+' start at '+layer_start_time.strftime('%Y/%m/%d-%H:%M:%S.%f')+'\n')
-
-        
-        check_window_layer[0:-1] = check_window_layer[1:]
-        check_window_layer[-1] = temp_temper
+        if no==len(remain_temper):
+            remain_temper=[]
+            break
+        else:
+            remain_temper=remain_temper[no:]
+        #if no<len(remain_temper):
+        #    remain_temper=remain_temper[no:]
         
         if (not state_waitting_layer):
-            wait_time_layer +=1
-            
-        if (wait_time_layer>50000) & (np.mean(check_window_layer)<5010): #& (not state_waitting_layer)
-            state_waitting_layer = True
-            pyro_calculate_features = True
-            
-            wait_time_layer=0
-            
-            if layer == next_layer:
-                #write pyro time
-                layer_end_time = current_temepr_time + i*timedelta(microseconds=10)
-                #pyro_time_writer.write('Layer '+str(layer)+' end at'+layer_end_time.strftime('%Y/%m/%d-%H_%M_%S_%f')+'\n')
-                with open('pyro_layer_time.txt','a') as pyro_time_writer:
-                    pyro_time_writer.write('Layer '+str(layer)+' end at '+layer_end_time.strftime('%Y/%m/%d-%H:%M:%S.%f')+'\n')
-            
-                next_layer +=1
-            
-            
-    current_temepr_time = current_temepr_time + len(current_temper_data)*timedelta(microseconds=10)
+            #wait_time_layer +=1    
+            for i in range (int(len(remain_temper)/10000)):
+                #check_window_layer=remain_temper[i*10000:(i+1)*10000]
+                check_window_layer=remain_temper[0:10000]
+                #if (not state_waitting_layer):
+                #    wait_time_layer+=10000 
+                wait_time_layer+=10000            
+                no+=10000    
+                #print('wait_time_layer:',wait_time_layer)
+                #print('no:',no)
+                remain_temper=remain_temper[10000:]
+                remain_len-=10000
+                if ((wait_time_layer>1000000) & (np.mean(check_window_layer)<5010)):   #前十秒忽略
+                    state_waitting_layer = True
+                    pyro_calculate_features = True
+                    
+                    wait_time_layer=0
+                    
+                    if layer == next_layer:
+                        #write pyro time
+                        layer_end_time = current_temepr_time + (no+1)*timedelta(microseconds=10)
+                        with open('pyro_layer_time.txt','a') as pyro_time_writer:
+                            pyro_time_writer.write('Layer '+str(layer)+' end at '+layer_end_time.strftime('%Y/%m/%d-%H:%M:%S.%f')+'\n')
+                    
+                        next_layer +=1
+                        print('layer_end_time:',layer_end_time)
+                    leave=True
+                    break 
+                
+        #if (not state_waitting_layer) and (no>(remain_len-10000)):
+        #    break
         
-    '''讀取圖像資料，並串聯起來'''  
+        #remain_temper=remain_temper[-(len(remain_temper)%10000):]
+    current_temepr_time = current_temepr_time + (no+1)*timedelta(microseconds=10)
+    #print('PYRO')
+    print('current_temepr_time:',current_temepr_time)
+    #print('state_waitting_layer:',state_waitting_layer)
+    #print('wait_time_layer:',wait_time_layer, ' mean:',np.mean(check_window_layer))
+    
     #read image data and concate
     if count == 0:
         layer_image_feature=pd.DataFrame(columns=['Length','Width','X_center','Y_center','Timetag'])
@@ -326,7 +366,11 @@ while True:   #continous loop
         
         #combine features 
         current_image_feature = pd.concat([current_image_feature,feature_final],axis=0,sort=False)
-        
+        #print('IMAGE')
+        #print('state_waitting_layer:',state_waitting_layer)
+        #print('filetime:',filetime,'layer_end_time:',layer_end_time)
+        print('filetime:',filetime)
+        print('state_waitting_layer:',state_waitting_layer)
         if state_waitting_layer & (filetime > layer_end_time):
             image_calculate_features=True      
             
@@ -365,7 +409,11 @@ while True:   #continous loop
                 if c==True:
                     layer_image_feature.iloc[i,-1]=j+1
                     break
-
+        
+        print(layer_temper_data_time)
+        print(layer_image_feature['Timetag'].iloc[0])
+        print(layer_image_feature['Timetag'].iloc[-1])
+        print(layer_temper_data_time + len(layer_temper_data)*timedelta(microseconds=10))
         AVM_features = calculate_indicator(layer_image_feature,layer_temper_data_time,layer_temper_data)
         
         '''輸出每層詳細資料 測試用 上線請移除'''
