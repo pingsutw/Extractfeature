@@ -4,30 +4,34 @@
 #include <math.h>
 #include <chrono>
 #include <thread> 
-#include <filesystem>
+#include <experimental/filesystem>
 #include <vector>
 #include <string>
 #include <experimental/filesystem>	
 #include <stdio.h>
 #include <sys/types.h>
-#include <windows.h>
-#include <conio.h>
 #include <unordered_map>
 #include <set>
 #include <ctime>
 #include <chrono>
 #include <numeric>
 #include <assert.h>
-#include<sstream>
+#include <sstream>
 #include <iomanip>
 #include <ctime>
+#include <unistd.h>
+#include <fcntl.h>
+#include <sys/types.h>
+#include <sys/stat.h>
+#include <bits/stdc++.h>
+#include <curses.h>
 
 #define _CRT_SECURE_NO_WARNINGS
 
 using namespace std;
 namespace fs = std::experimental::filesystem;
 
-string file_prefix = "C:\\Users\\kevin\\Desktop\\";
+string file_prefix = "/home/dslab/git/Extractfeature/opencv/";
 
 string image_csv_simulation = file_prefix + "0724csv_1_simulation";
 string pyro_txt_simulation = file_prefix + "0724pyro_1_simulation";
@@ -43,7 +47,7 @@ string layer_path = file_prefix + "layer"; //Need to create dir first
 string AVM_image_features_index[] = { "Length_min","Length_max","Length_mean","Length_var","Length_std","Length_skew",
 									   "Length_kurt","Length_1quantile'","Length_2quantile","Length_3quantile","Length_range",
 									   "Length_quantile",
-									   "Width_min","Width_max","Width_mean","Width_var","Width_std","Width_skew",
+									   "Width_min","Width_max","Width_mean","Width_var","Width_varidth_std","Width_skew",
 									   "Width_kurt","Width_1quantile","Width_2quantile","Width_3quantile","Width_range",
 									   "Width_quantile"
 									   "Temper_min","Temper_max","Temper_mean","Temper_var","Temper_std","Temper_skew",
@@ -118,7 +122,8 @@ int main() {
 		vector<string> time_idx;
 		time_idx = split(pyro_simulation[i], "_");
 		double t = atoi(time_idx[0].c_str()) * 3600.0f + atoi(time_idx[1].c_str())*60.0f
-			+ atoi(time_idx[2].c_str()) + atoi(time_idx[3].c_str())/100000.0f;
+			+ atoi(time_idx[2].c_str());
+		t += atoi(time_idx[3].c_str())/100000.0f;
 		pyro_simu_time.push_back(t);
 	}
 	cout << "pyro_simu_time.size() = " << pyro_simu_time.size() << endl;
@@ -128,13 +133,21 @@ int main() {
 		vector<string> time_idx;
 		time_idx = split(split(image_simulation[i], "-")[1],"_");
 		double t = atoi(time_idx[0].c_str()) * 3600.0f + atoi(time_idx[1].c_str()) * 60.0f
-			+ atoi(time_idx[2].c_str()) + atoi(time_idx[3].c_str()) / 100000.0f;
+			+ atoi(time_idx[2].c_str());
+		t += atoi(time_idx[3].c_str()) / 100000.0f;	
+		
+		// cout.precision(17);
+		// if(i == 0){
+		// 	cout << atoi(time_idx[0].c_str()) * 3600.0f + atoi(time_idx[1].c_str()) * 60.0f
+		// 	+ atoi(time_idx[2].c_str())<< endl;
+		// 	 cout << t <<endl;
+		// }
 		image_simu_time.push_back({t,0});
 	}
 	for (int i = 0; i < pyro_simulation.size()/30; i++) {
 		vector<bool> c(image_simu_time.size(), true);
 		for (int j = 0; j < image_simu_time.size(); j++) {
-			c[j] = image_simu_time[j][0] < pyro_simu_time[int(pyro_simulation.size() / 30.0f - i) * 30];
+			c[j] = image_simu_time[j][0] < pyro_simu_time[int(pyro_simulation.size() / 30 - i) * 30]-1;
 		}
 		for (int j = 0; j < image_simu_time.size(); j++) {
 			if (c[j]) {
@@ -187,23 +200,25 @@ int main() {
 	Time current_temepr_time;
 
 	vector<double> layer_temper_data;
+	vector<double> remain_temper;
 
 	// continous loop
 	while (true) {
+		cout << endl;
 		getCurrentTime();
 		cout << "count = "<< count << endl;
 
 		int result = 0;
 		for (int i = 0; i < 30; i++) {
-			string origin_file_name = pyro_txt_simulation + "\\" + pyro_simulation[count * 30 + i] + ".txt";
+			string origin_file_name = pyro_txt_simulation + "/" + pyro_simulation[count * 30 + i] + ".txt";
 			//cout << origin_file_name << endl;
 			if (exists(origin_file_name))
-				result |= rename(origin_file_name.c_str(), (pyro_txt_file + "\\" + getfilename(pyro_simulation[count * 30 + i])).c_str());
+				result |= rename(origin_file_name.c_str(), (pyro_txt_file + "/" + getfilename(pyro_simulation[count * 30 + i])).c_str());
 		}
 		for (int i = 0; i < image_simulation.size(); i++) {
-			string origin_file_name = image_csv_simulation + "\\" + image_simulation[i] + ".csv";
-			if (exists(origin_file_name) && image_simu_time[i][1] == count)
-				result |= rename(origin_file_name.c_str(), (image_csv_file + "\\" + getfilename(image_simulation[i])).c_str());
+			string origin_file_name = image_csv_simulation + "/" + image_simulation[i] + ".csv";
+			if (exists(origin_file_name) && (int)image_simu_time[i][1] == count)
+				result |= rename(origin_file_name.c_str(), (image_csv_file + "/" + getfilename(image_simulation[i])).c_str());
 		}
 		
 		//cout << pyro_txt_file + "\\" + pyro_simulation[0] + ".txt" << endl;
@@ -211,7 +226,7 @@ int main() {
 			perror("Error renaming file");
 			return 0;
 		}
-		Sleep(1000);
+		//usleep(1000);
 
 		vector<std::string> pyro_files;
 		vector<std::string> image_files;
@@ -231,6 +246,7 @@ int main() {
 			sscanf(ss.str().c_str(), "%d/%d/%d-%d_%d_%d_%d", &pyro_start_time.year, &pyro_start_time.month, &pyro_start_time.day,
 				&pyro_start_time.hour, &pyro_start_time.min, &pyro_start_time.second, &pyro_start_time.millisecond);
 
+			cout << "pyro_start_time" << pyro_start_time << endl;
 			current_temepr_time = pyro_start_time;
 
 			layer_temper_data_time = pyro_start_time;
@@ -240,16 +256,18 @@ int main() {
 			layer_end_time.day += 1;
 			checkTime(layer_end_time);
 
-			ofstream csv(output_path, ios::out | ios::app);
-			//csv.open(output);
-			csv << "Pyro start at " << pyro_start_time << "\n";
-			csv.close();
+			ofstream pyro_time_writer(output_path, ios::out | ios::app);
+			pyro_time_writer << "Pyro start at " << pyro_start_time << "\n";
+			pyro_time_writer.close();
 		}
+
+		cout << "Preprocess temperature" << endl;
+		//=========================================================//
 		vector<double> current_temper_data;
 		//讀取溫度資料，轉換成溫度值，並串聯起來
 		//read pyro data, calculate temperature and concate
 		for (int i = 0; i < pyro_files.size(); i++) {
-			ifstream infile(pyro_txt_file + "\\" + pyro_files[i]);
+			ifstream infile(pyro_txt_file + "/" + pyro_files[i]);
 			string d1, d2;
 			vector<vector<double>> temp_array;
 			while (getline(infile, d1, ',')) {
@@ -268,71 +286,115 @@ int main() {
 					current_temper_data.push_back(temp_temper[j]);
 			}
 			infile.close();
-			if (remove((pyro_txt_file + "\\" + pyro_files[i]).c_str()) != 0) {
+			if (remove((pyro_txt_file + "/" + pyro_files[i]).c_str()) != 0) {
 				perror("Error deleting file");
 				return 0;
 			}
 		}
+
 		for (auto& d : current_temper_data) {
 			layer_temper_data.push_back(d);
 		}
 		/*利用moving windows尋找每層開始以及結束時間點
+			如果沒雷射的時候，逐點確認
+    		有雷射的時候，每0.1秒(10000)跳著確認
 			check the layer segment point
 			current_temper_data = np.array(current_temper_data, dtype = float)*/
-		for (int i = 0; i < current_temper_data.size(); i++) {
-			double temp_temper = current_temper_data[i];
-			if (state_waitting_layer && (temp_temper > 5020)) {
-				layer += 1;
-				state_waitting_layer = false;
-				wait_time_layer = 0;
+		
+		for (auto& d : current_temper_data) {
+			remain_temper.push_back(d);
+		}
 
-				//write pyro time
-				Time layer_start_time = current_temepr_time;
-				layer_start_time.millisecond += i * 10;
-				checkTime(layer_start_time);
-				ofstream csv(output_path, ios::out | ios::app);
-				//csv.open(output);
-				csv << "Layer " << layer << " start at " << layer_start_time << "\n";
-				csv.close();
-			}
+		bool leave =false;
+		int no = 0;
+		int remain_len = remain_temper.size();
 
-			check_window_layer[check_window_layer_index] = temp_temper;
-			check_window_layer_index += 1;
-			check_window_layer_index %= check_window_layer.size();
 
-			if (state_waitting_layer == false) {
-				wait_time_layer += 1;
-			}
-			//double mean = accumulate(check_window_layer.begin(), check_window_layer.end(), 0.0) / check_window_layer.size();
-			double d;
-			if ((wait_time_layer > (double)20000) && mean(check_window_layer) < (double)5010) {
-				state_waitting_layer = true;
-				pyro_calculate_features = true;
-				wait_time_layer = 0;
-				if (layer == next_layer) {
-					//write pyro time
-					layer_end_time = current_temepr_time;
-					layer_end_time.millisecond += i * 10;
-					checkTime(layer_end_time);
+		while(remain_len>10000){
+			if(leave)break;
+			while(state_waitting_layer){
+				double temp_temper = remain_temper[no];
+				if(temp_temper>5020.0f){
+					layer++;
+					state_waitting_layer = false;
+					wait_time_layer = 0;
+					
+					Time layer_start_time = current_temepr_time;
+					layer_start_time.millisecond += (no+1) *10;
+					checkTime(layer_start_time);
 
 					ofstream csv(output_path, ios::out | ios::app);
-					//csv.open(output);
-					csv << "Layer " << layer << " end at " << layer_end_time << "\n";
+					csv << "Layer " << layer << " start at " << layer_start_time << "\n";
 					csv.close();
-					next_layer += 1;
+				}
+				no++;
+				remain_len-=1;
+				if(no==remain_temper.size()){
+					break;
 				}
 			}
+
+			if(no == remain_temper.size()){
+				remain_temper.clear();
+				break;
+			}
+			else{
+				remain_temper.erase(remain_temper.begin(),remain_temper.begin()+no);
+				//cout << "test" << endl;
+			}
+			
+			if(state_waitting_layer == false){
+				int len = remain_temper.size()/10000;
+				for(int i=0;i<len;i++){
+					vector<double> check_window_layer1(remain_temper.begin(),remain_temper.begin()+10000);
+					wait_time_layer+=10000;
+					no+=10000;
+					remain_temper.erase(remain_temper.begin(),remain_temper.begin()+10000);
+					remain_len-=10000;
+					
+					
+					if((wait_time_layer>1000000) && (mean(check_window_layer1) < (double)5010)){
+						state_waitting_layer = true;
+						pyro_calculate_features = true;
+						wait_time_layer = 0;
+						if (layer == next_layer) {
+							//write pyro time
+							layer_end_time = current_temepr_time;
+							layer_end_time.millisecond += (no+1) * 10;
+							checkTime(layer_end_time);
+	
+							ofstream pyro_time_writer(output_path, ios::out | ios::app);
+							pyro_time_writer << "Layer " << layer << " end at " << layer_end_time << "\n";
+							pyro_time_writer.close();
+							next_layer += 1;
+						}
+						leave = true;
+						break;
+					}
+				}
+			}
+
+
 		}
-		current_temepr_time.millisecond += current_temper_data.size() * 10;
+
+		
+
+
+		current_temepr_time.millisecond += (no+1) * 10;
 		checkTime(current_temepr_time);
+		cout << "current_temepr_time : " << current_temepr_time << endl;
+
+		cout << "Preprocess image csv" << endl;
+		//============================================================//
 		//讀取圖像資料，並串聯起來
 		//read image data and concate
 		vector<vector<double>> current_image_feature;
 
+		cout << "image_file size = " << image_files.size() << endl;
 		for (int i = 0; i < image_files.size(); i++) {
 
 			char h[15], m[15], s[16], ms[15];
-			istringstream ss(getfilename(image_csv_file + "\\" + image_files[i]));
+			istringstream ss(getfilename(image_csv_file + "/" + image_files[i]));
 			sscanf(ss.str().c_str(), "%[^_]_%[^_]_%[^_]_%s", h, m, s, ms);
 			string filename_combine = date + ' ' + string(h) + ":"+ string(m) + ":"+ string(s) + '.'+ string(ms) + '0';
 			//cout << filename_combine << endl;
@@ -342,7 +404,7 @@ int main() {
 
 			vector<vector<double>> temp_feature;
 
-			ifstream infile(image_csv_file + "\\" + image_files[i]);
+			ifstream infile(image_csv_file + "/" + image_files[i]);
 			getline(infile, line);
 			string d1, d2, t;
 			while (getline(infile, line)) {
@@ -351,14 +413,19 @@ int main() {
 				vector<double> t;
 				while (getline(iss, d1, ',')) {
 					t.push_back(atof(d1.c_str()));
+					//cout << d1 << endl;
 				}
+
 				temp_feature.push_back(t);
 				Timetag.push_back(filetime);
 			}
 			infile.close();
-			for (int j = 1; j < temp_feature.size(); j++) {
-				Timetag[j].millisecond = Timetag[j - 1].millisecond + 400;
-				checkTime(Timetag[i]);
+
+
+			cout << "temp_feature size = " << temp_feature.size()<<endl;
+			for (int j = 0; j < temp_feature.size(); j++) {
+				Timetag[j].millisecond += j*400;
+				checkTime(Timetag[j]);
 			}
 
 			vector<vector<double>> feature_remove = temp_feature;
@@ -367,20 +434,27 @@ int main() {
 			// remove too big meltpool
 			for (int j = 0; j < temp_feature.size(); j++) {
 				//length and Width 
-				if (feature_remove[j][0] < 30 && feature_remove[j][1] < 30) {
+				if (feature_remove[j][0] < 30 && feature_remove[j][1] < 30 
+					&& feature_remove[j][0] > 0 && feature_remove[j][1] > 0) {
+					//cout << feature_remove[j][0] << " " << feature_remove[j][1] << endl;
 					feature_final.push_back(feature_remove[j]);
 					Timetag_copy.push_back(Timetag[j]);
 				}
 			}
 
+			cout << "feature_final size = " << feature_final.size() << endl;
+
 			for (int j = 0; j < feature_final.size(); j++) {
 				current_image_feature.push_back(feature_final[j]);
 			}
+			cout << "filetime : " << filetime << endl;
+			cout << "state_waitting_layer : " << state_waitting_layer << endl;
+
 			if (state_waitting_layer == true && (layer_end_time < filetime))
 				image_calculate_features = true;
 
 
-			if (remove((image_csv_file + "\\" + image_files[i]).c_str()) != 0) {
+			if (remove((image_csv_file + "/" + image_files[i]).c_str()) != 0) {
 				perror("Error deleting file");
 				return 0;
 			}
@@ -390,12 +464,14 @@ int main() {
 			layer_image_feature.push_back(current_image_feature[j]);
 		}
 
+		//==========================================================//
 		count += 1;
 		//計算各個樣本特徵
 		//sample match and calculate features
 		if (pyro_calculate_features && image_calculate_features) {
 			getCurrentTime();
 			cout << "calculate layer" << layer << " feature" << endl;
+			cout << "layer_image_feature size = " << layer_image_feature.size() << endl;
 
 			//get sample position
 			vector<vector<double>> position;
@@ -407,39 +483,48 @@ int main() {
 
 				x = (x - 90) * 140 / 75;
 				y = (y - 57) * 140 / 93;
+				//cout << y << "  ";
 				position.push_back({x,y});
 			}
 			//initial feature sample_no
 			//vector<int> Sample_no(layer_image_feature.size(), 0);
+			for (int i = 0; i < layer_image_feature.size(); i++){
+				layer_image_feature[i].push_back(0);
+			}
 
+			cout << "start allocate sample number. " << endl;
 			//allocate sample number
 			for (int i = 0; i < layer_image_feature.size(); i++) {
 				for (int j = 0; j < sample_position.size(); j++) {
 					bool f = isInsidePolygon(position[i], sample_position[j]);
+					//cout << f << endl;
 					if (f == true) {
 						// layer_image_feature[Sample_no]
-						layer_image_feature[i].push_back(j + 1);
+						layer_image_feature[i].back() = (j + 1);
+						//cout << " test = " << i << " " << j+1 << endl;
 						break;
-					}
-					else {
-						layer_image_feature[i].push_back(0);
 					}
 				}
 			}
+			cout << "before calculate_indicator" << endl;
 			//calculate image features
 			vector<vector<double>> AVM_image_features = calculate_indicator(layer_image_feature, 
 				layer_temper_data_time, layer_temper_data, Timetag_copy);
-			
-			ofstream csv(layer_path + "\\layer_" + to_string(layer_temper_data_time.hour) + "_"+
+			cout << "after calculate_indicator" << endl;
+
+
+			ofstream f(layer_path + "/layer_" + to_string(layer_temper_data_time.hour) + "_"+
 				to_string(layer_temper_data_time.min) + "_" +  to_string(layer_temper_data_time.second)
 				+ "_" + to_string(layer_temper_data_time.millisecond)
 				+ ".txt", ios::out | ios::app);
 			for (double& item : layer_temper_data) {
-				csv << to_string(item) << "\n";
+				f << to_string(item) << "\n";
 			}
-			csv.close();
+			f.close();
 			
-			ofstream csv1(layer_path + "\\layer_" + to_string(layer) + "_feature.csv", ios::out | ios::app);
+			// Todo: Add layer_image_feature.to_csv();
+
+			ofstream csv1(layer_path + "/layer_" + to_string(layer) + "_feature.csv", ios::out | ios::app);
 			// write column name string 
 			for (int i = 0; i < AVM_image_features_index->size(); i++) {
 				csv1 << AVM_image_features_index[i];
@@ -463,9 +548,9 @@ int main() {
 			layer_temper_data_time.millisecond += layer_temper_data.size() * 10;
 			checkTime(layer_temper_data_time);
 
-			layer_temper_data.clear();
 			pyro_calculate_features = false;
 			image_calculate_features = false;
+			layer_temper_data.clear();
 			layer_image_feature.clear();
 		}
 
@@ -477,7 +562,7 @@ int main() {
 
 std::string getfilename(string path)
 {
-	path = path.substr(path.find_last_of("/\\") + 1);
+	path = path.substr(path.find_last_of("/") + 1);
 	size_t dot_i = path.find_last_of('.');
 	return path.substr(0, dot_i);
 }
@@ -529,7 +614,7 @@ bool isInsidePolygon(vector<double>& pt, vector<vector<double>>& poly){
 	int j = l - 1;
 	while (i < l - 1) {
 		i++;
-		if ((poly[i][0] <= pt[0] && pt[0] < poly[j][0]) or (poly[j][0] <= pt[0] && pt[0] < poly[i][0]))
+		if ((poly[i][0] <= pt[0] && pt[0] < poly[j][0]) || (poly[j][0] <= pt[0] && pt[0] < poly[i][0]))
 			if (pt[1] < (poly[j][1] - poly[i][1]) * (pt[0] - poly[i][0]) / (poly[j][0] - poly[i][0]) + poly[i][1])
 				f = !f;
 		j = i;
@@ -594,14 +679,16 @@ double Kurtosis(vector<double>& arr, double std, double avg) {
 // Length, Width, X_center, Y_Center
 vector<vector<double>> calculate_indicator(vector<vector<double>>& layer_image_feature, 
 	Time& layer_temper_data_time, vector<double>& layer_temper_data, vector<Time>& Timetag_copy) {
+	
 	vector<vector<double>> AVM_image_features;
 	vector<double> temp_sample_L;
 	vector<double> temp_sample_W;
 
 	int max_sample = 0;
 	for (int i = 0; i < layer_image_feature.size(); i++) {
-		max_sample = max(max_sample, layer_image_feature[i].back());
+		max_sample = max((double)max_sample, layer_image_feature[i].back());
 	}
+	cout << "max_sample" <<  max_sample << endl;
 	for (int i = 0; i < max_sample; i++) {
 		
 		// python : temp_sample=layer_image_feature[sample_filter].copy()
@@ -611,6 +698,9 @@ vector<vector<double>> calculate_indicator(vector<vector<double>>& layer_image_f
 				temp_sample_W.push_back(layer_image_feature[j][1]);
 			}
 		}
+		cout << "temp_sample_L.size() : " << temp_sample_L.size() << endl;
+		cout << "Lenght : ";
+		getCurrentTime();
 		double temp_Length_min = *min_element(temp_sample_L.begin(), temp_sample_L.end());
 		double temp_Length_max = *max_element(temp_sample_L.begin(), temp_sample_L.end());
 		double temp_Length_mean = mean(temp_sample_L);
@@ -619,12 +709,13 @@ vector<vector<double>> calculate_indicator(vector<vector<double>>& layer_image_f
 		double temp_Length_skew = skewness(temp_sample_L, temp_Length_std);
 		double temp_Length_kurt = Kurtosis(temp_sample_L, temp_Length_std, temp_Length_mean);
 		double temp_Length_1quantile = quant(temp_sample_L, 0.25);
-		double temp_Length_2quantile = quant(temp_sample_L, 0.5);
+		double temp_Length_2quantile = quant(temp_sample_L, 0.50);
 		double temp_Length_3quantile = quant(temp_sample_L, 0.75);
 		double temp_Length_range = temp_Length_max - temp_Length_min;
 		double temp_Length_quantile = temp_Length_3quantile - temp_Length_1quantile;
-
-
+		
+		cout << "Width : ";
+		getCurrentTime();
 		double temp_Width_min = *min_element(temp_sample_W.begin(), temp_sample_W.end());
 		double temp_Width_max = *max_element(temp_sample_W.begin(), temp_sample_W.end());
 		double temp_Width_mean = mean(temp_sample_W);
@@ -638,6 +729,8 @@ vector<vector<double>> calculate_indicator(vector<vector<double>>& layer_image_f
 		double temp_Width_range = temp_Width_max - temp_Width_min;
 		double temp_Width_quantile = temp_Width_3quantile - temp_Width_1quantile;
 
+		cout << "Temper : ";
+		getCurrentTime();
 		// calculate temper features
 		vector<int> idx;
 		for (int j = 0; j < layer_image_feature.size(); j++) {
@@ -646,26 +739,31 @@ vector<vector<double>> calculate_indicator(vector<vector<double>>& layer_image_f
 		}
 
 		// start time 
-		// Todo : fix quant error
 		int seg_idx_1 = INT_MAX;
 		double tmp = quant(idx, 0.25) - 1.5*(quant(idx, 0.75) - quant(idx, 0.25));
 		for (int j = 0; j < idx.size(); j++) {
-			seg_idx_1 = min(seg_idx_1, abs(idx[j] - tmp));
+			seg_idx_1 = min(seg_idx_1, (int)abs(idx[j] - tmp));
 		}
+		cout << tmp << endl;
+		cout << "seg_idx_1 = " << seg_idx_1 << endl;
 
 		ofstream pyro_time_writer( file_prefix + "pyro_layer_time1.txt", ios::out | ios::app);
 		pyro_time_writer << "sample " + to_string(i + 1) + "start:";
 		pyro_time_writer << Timetag_copy[idx[seg_idx_1 + 1]] << "\n";
 		pyro_time_writer.close();
 
-		int temper_start_seg_idx = (Timetag_copy[idx[seg_idx_1 + 1]] - layer_temper_data_time) * 100000;
+		double temper_start_seg_idx = (Timetag_copy[idx[seg_idx_1 + 1]] - layer_temper_data_time) * 100000;
 
 		// end time 
 		int seg_idx_2 = INT_MAX;
 		tmp = quant(idx, 0.75) + 1.5*(quant(idx, 0.75) - quant(idx, 0.25));
 		for (int j = 0; j < idx.size(); j++) {
-			seg_idx_2 = min(seg_idx_2, abs(idx[j] - tmp));
+			seg_idx_2 = min(seg_idx_2, (int)abs(idx[j] - tmp));
+			//cout << idx[j] << " = " << tmp << endl;
 		}
+
+		cout << tmp << endl;
+		cout << "seg_idx_2 = " << seg_idx_2 << endl;
 
 		ofstream pyro_time_writer1(file_prefix + "pyro_layer_time1.txt", ios::out | ios::app);
 		pyro_time_writer1 << "sample " + to_string(i + 1) + "end:";
@@ -673,13 +771,17 @@ vector<vector<double>> calculate_indicator(vector<vector<double>>& layer_image_f
 		pyro_time_writer1 << "\n";
 		pyro_time_writer1.close();
 
-		int temper_end_seg_idx = (Timetag_copy[idx[seg_idx_2 - 1]] - layer_temper_data_time) * 100000;
+		double temper_end_seg_idx = (Timetag_copy[idx[seg_idx_2 - 1]] - layer_temper_data_time) * 100000;
 
+		
+		//===========================================================//
 		vector<double> temp_temper;
-		for (int j = temper_start_seg_idx; j < temper_end_seg_idx; j++) {
+		for (int j = (int)temper_start_seg_idx; j < (int)temper_end_seg_idx; j++) {
 			temp_temper.push_back(layer_temper_data[j]);
 		}
 
+		cout << temper_start_seg_idx << " " << temper_end_seg_idx << endl;
+		cout << "temp_temper.size() : " << temp_temper.size() << endl;
 		double temp_Temper_min = *min_element(temp_temper.begin(), temp_temper.end());
 		double temp_Temper_max = *max_element(temp_temper.begin(), temp_temper.end());
 		double temp_Temper_mean = mean(temp_temper);
@@ -693,7 +795,8 @@ vector<vector<double>> calculate_indicator(vector<vector<double>>& layer_image_f
 		double temp_Temper_range = temp_Temper_max - temp_Temper_min;
 		double temp_Temper_quantile = temp_Temper_3quantile - temp_Temper_1quantile;
 
-
+		cout << "End : ";
+		getCurrentTime();
 		AVM_image_features.push_back({ temp_Length_min, temp_Length_max, temp_Length_mean, temp_Length_var, temp_Length_std,
 				temp_Length_skew, temp_Length_kurt, temp_Length_1quantile, temp_Length_2quantile,temp_Length_3quantile,
 				temp_Length_range, temp_Length_quantile,
