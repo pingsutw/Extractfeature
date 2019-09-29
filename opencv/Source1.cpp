@@ -561,7 +561,7 @@ double skewness(vector<double>& arr,double std) {
 	// Find skewness using above formula 
 	float sum = 0;
 	for (int i = 0; i < n; i++)
-		sum = (arr[i] - mean(arr)) *(arr[i] - mean(arr)) *(arr[i] - mean(arr));
+		sum += (arr[i] - mean(arr)) *(arr[i] - mean(arr)) *(arr[i] - mean(arr));
 	return sum / (n * std *std *std *std);
 }
 
