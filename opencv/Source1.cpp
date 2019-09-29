@@ -8,7 +8,6 @@
 #include <vector>
 #include <string>
 #include <experimental/filesystem>	
-#include <stdio.h>
 #include <sys/types.h>
 #include <windows.h>
 #include <conio.h>
@@ -562,7 +561,7 @@ double skewness(vector<double>& arr,double std) {
 	float sum = 0;
 	for (int i = 0; i < n; i++)
 		sum += (arr[i] - mean(arr)) *(arr[i] - mean(arr)) *(arr[i] - mean(arr));
-	return sum / (n * std *std *std *std);
+	return sum / (n * std *std *std);
 }
 
 template <typename T1, typename T2> typename T1::value_type quant(const T1 &x, T2 q)
